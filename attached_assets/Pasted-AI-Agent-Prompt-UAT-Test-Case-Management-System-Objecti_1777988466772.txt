@@ -1,0 +1,60 @@
+AI Agent Prompt: UAT Test Case Management System
+Objective:
+Act as a Full-Stack Software Architect and Developer. Your goal is to design and provide the implementation logic for a UAT Test Case Management System. The system consists of an Admin Web Application for designing tests and a Tester Interface for executing them.
+
+1. Data Structure & Relationships
+Refer to the layout in Test Case Sample.xlsx to understand the data hierarchy. The system should follow this logic:
+
+Test Project: The top-level entity.
+
+Properties: Project Name, Test Designed By (e.g., Bradley Minnaar), Module Name, Test Design Date, Test Link (hyperlink), and a system-generated Test Project Code.
+
+Versioning: Automatically increment the Test Version and update the Test Version Date whenever changes are saved.
+
+Use Cases: Each Project contains multiple Use Cases (e.g., UC1, UC2).
+
+Test Cases: Each Use Case contains multiple Test Cases.
+
+Properties: Test Case # (auto-sequenced), Title.
+
+Test Steps: Each Test Case consists of numbered steps.
+
+Properties: Instruction, Test Data, and Expected Result.
+
+Attachments: Each property (Instruction, Data, Expected Result) must support file uploads (Image, Excel, Word, PDF) or URLs.
+
+2. Functional Component: Admin Web Application
+The Admin portal must facilitate the full lifecycle of test design:
+
+CRUD Operations: Create, edit, and delete Test Projects and their nested Use/Test cases.
+
+Document Generation: Functionality to export/save Test Sheets as printable PDF or MS Excel documents.
+
+Reporting Dashboard: A section to view completed test results. Include analysis such as Pass/Fail rates per project release and progress tracking.
+
+3. Functional Component: Tester Interface
+A streamlined interface for users to execute tests:
+
+Project Access: Users log in and enter a Test Project Code to load the specific Test Template.
+
+Execution Template: Display the Test Link (with a "Share to Mobile" option), Use Case details, and all Test Steps.
+
+User Input per Test Case:
+
+Iteration Number: Automatically assigned based on previous attempts.
+
+Actual Result: Text area with support for file attachments/links.
+
+Comments: Text area with support for file attachments/links.
+
+Status: A Boolean Pass/Fail toggle.
+
+4. Technical Requirements
+File Handling: Implement a secure storage solution for the various file formats (PDF, DOCX, XLSX, Images).
+
+UI/UX: The Admin side should prioritize data entry efficiency (e.g., bulk adding steps), while the Tester side should be mobile-responsive for easy "on-the-fly" testing.
+
+Output: Provide a database schema (SQL), a list of necessary API endpoints, and a front-end component map for this system.
+
+Key Details from your Reference
+When building the logic for "Test Designed By" or "Project Name," ensure the fields accommodate the data types seen in Test Case Sample.xlsx, such as the Project Name "UV Portal" and the specific date formats used in the document.

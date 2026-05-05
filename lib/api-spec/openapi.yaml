@@ -3,20 +3,34 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: UAT Test Case Management System API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: projects
+    description: Test project operations
+  - name: use-cases
+    description: Use case operations
+  - name: test-cases
+    description: Test case operations
+  - name: test-steps
+    description: Test step operations
+  - name: executions
+    description: Test execution operations
+  - name: attachments
+    description: Attachment operations
+  - name: dashboard
+    description: Dashboard and reporting operations
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +38,553 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Projects ────────────────────────────────────────────────────────────────
+  /projects:
+    get:
+      operationId: listProjects
+      tags: [projects]
+      summary: List all test projects
+      responses:
+        "200":
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TestProject"
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: Create a new test project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectBody"
+      responses:
+        "201":
+          description: Created project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestProject"
+
+  /projects/{projectId}:
+    get:
+      operationId: getProject
+      tags: [projects]
+      summary: Get a single project with full tree
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Project detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestProjectDetail"
+        "404":
+          description: Not found
+    put:
+      operationId: updateProject
+      tags: [projects]
+      summary: Update a project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectBody"
+      responses:
+        "200":
+          description: Updated project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestProject"
+    delete:
+      operationId: deleteProject
+      tags: [projects]
+      summary: Delete a project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /projects/code/{projectCode}:
+    get:
+      operationId: getProjectByCode
+      tags: [projects]
+      summary: Get project by code (for tester login)
+      parameters:
+        - name: projectCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Project detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestProjectDetail"
+        "404":
+          description: Not found
+
+  # ── Use Cases ─────────────────────────────────────────────────────────────
+  /projects/{projectId}/use-cases:
+    get:
+      operationId: listUseCases
+      tags: [use-cases]
+      summary: List use cases for a project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of use cases
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UseCase"
+    post:
+      operationId: createUseCase
+      tags: [use-cases]
+      summary: Create a use case
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUseCaseBody"
+      responses:
+        "201":
+          description: Created use case
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UseCase"
+
+  /use-cases/{useCaseId}:
+    put:
+      operationId: updateUseCase
+      tags: [use-cases]
+      summary: Update a use case
+      parameters:
+        - name: useCaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUseCaseBody"
+      responses:
+        "200":
+          description: Updated use case
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UseCase"
+    delete:
+      operationId: deleteUseCase
+      tags: [use-cases]
+      summary: Delete a use case
+      parameters:
+        - name: useCaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Test Cases ────────────────────────────────────────────────────────────
+  /use-cases/{useCaseId}/test-cases:
+    get:
+      operationId: listTestCases
+      tags: [test-cases]
+      summary: List test cases for a use case
+      parameters:
+        - name: useCaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of test cases
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TestCase"
+    post:
+      operationId: createTestCase
+      tags: [test-cases]
+      summary: Create a test case
+      parameters:
+        - name: useCaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTestCaseBody"
+      responses:
+        "201":
+          description: Created test case
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestCase"
+
+  /test-cases/{testCaseId}:
+    put:
+      operationId: updateTestCase
+      tags: [test-cases]
+      summary: Update a test case
+      parameters:
+        - name: testCaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTestCaseBody"
+      responses:
+        "200":
+          description: Updated test case
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestCase"
+    delete:
+      operationId: deleteTestCase
+      tags: [test-cases]
+      summary: Delete a test case
+      parameters:
+        - name: testCaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Test Steps ────────────────────────────────────────────────────────────
+  /test-cases/{testCaseId}/steps:
+    get:
+      operationId: listTestSteps
+      tags: [test-steps]
+      summary: List steps for a test case
+      parameters:
+        - name: testCaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of steps
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TestStep"
+    post:
+      operationId: createTestStep
+      tags: [test-steps]
+      summary: Create a test step
+      parameters:
+        - name: testCaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTestStepBody"
+      responses:
+        "201":
+          description: Created step
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestStep"
+
+  /test-cases/{testCaseId}/steps/bulk:
+    post:
+      operationId: bulkCreateTestSteps
+      tags: [test-steps]
+      summary: Bulk create test steps
+      parameters:
+        - name: testCaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                steps:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/CreateTestStepBody"
+              required: [steps]
+      responses:
+        "201":
+          description: Created steps
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TestStep"
+
+  /steps/{stepId}:
+    put:
+      operationId: updateTestStep
+      tags: [test-steps]
+      summary: Update a test step
+      parameters:
+        - name: stepId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTestStepBody"
+      responses:
+        "200":
+          description: Updated step
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestStep"
+    delete:
+      operationId: deleteTestStep
+      tags: [test-steps]
+      summary: Delete a test step
+      parameters:
+        - name: stepId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Executions ────────────────────────────────────────────────────────────
+  /test-cases/{testCaseId}/executions:
+    get:
+      operationId: listExecutions
+      tags: [executions]
+      summary: List executions for a test case
+      parameters:
+        - name: testCaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of executions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TestExecution"
+    post:
+      operationId: createExecution
+      tags: [executions]
+      summary: Submit a test execution result
+      parameters:
+        - name: testCaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExecutionBody"
+      responses:
+        "201":
+          description: Created execution
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestExecution"
+
+  /executions/{executionId}:
+    put:
+      operationId: updateExecution
+      tags: [executions]
+      summary: Update an execution
+      parameters:
+        - name: executionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExecutionBody"
+      responses:
+        "200":
+          description: Updated execution
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestExecution"
+
+  # ── Attachments ───────────────────────────────────────────────────────────
+  /attachments:
+    post:
+      operationId: createAttachment
+      tags: [attachments]
+      summary: Add an attachment (URL or uploaded file reference)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAttachmentBody"
+      responses:
+        "201":
+          description: Created attachment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Attachment"
+
+  /attachments/{attachmentId}:
+    delete:
+      operationId: deleteAttachment
+      tags: [attachments]
+      summary: Delete an attachment
+      parameters:
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Dashboard ─────────────────────────────────────────────────────────────
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Overall system summary
+      responses:
+        "200":
+          description: Summary stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/projects/{projectId}/stats:
+    get:
+      operationId: getProjectStats
+      tags: [dashboard]
+      summary: Pass/fail stats for a project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Project stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectStats"
+
+  /dashboard/recent-activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Recent test execution activity
+      responses:
+        "200":
+          description: Recent activity list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +592,318 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    TestProject:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectCode:
+          type: string
+        name:
+          type: string
+        designedBy:
+          type: string
+        moduleName:
+          type: string
+        designDate:
+          type: string
+        testLink:
+          type: string
+          nullable: true
+        version:
+          type: integer
+        versionDate:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required: [id, projectCode, name, designedBy, moduleName, designDate, version, versionDate, createdAt, updatedAt]
+
+    TestProjectDetail:
+      allOf:
+        - $ref: "#/components/schemas/TestProject"
+        - type: object
+          properties:
+            useCases:
+              type: array
+              items:
+                $ref: "#/components/schemas/UseCaseDetail"
+          required: [useCases]
+
+    CreateProjectBody:
+      type: object
+      properties:
+        name:
+          type: string
+        designedBy:
+          type: string
+        moduleName:
+          type: string
+        designDate:
+          type: string
+        testLink:
+          type: string
+          nullable: true
+      required: [name, designedBy, moduleName, designDate]
+
+    UseCase:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        code:
+          type: string
+        name:
+          type: string
+        createdAt:
+          type: string
+      required: [id, projectId, code, name, createdAt]
+
+    UseCaseDetail:
+      allOf:
+        - $ref: "#/components/schemas/UseCase"
+        - type: object
+          properties:
+            testCases:
+              type: array
+              items:
+                $ref: "#/components/schemas/TestCaseDetail"
+          required: [testCases]
+
+    CreateUseCaseBody:
+      type: object
+      properties:
+        name:
+          type: string
+      required: [name]
+
+    TestCase:
+      type: object
+      properties:
+        id:
+          type: integer
+        useCaseId:
+          type: integer
+        caseNumber:
+          type: integer
+        title:
+          type: string
+        createdAt:
+          type: string
+      required: [id, useCaseId, caseNumber, title, createdAt]
+
+    TestCaseDetail:
+      allOf:
+        - $ref: "#/components/schemas/TestCase"
+        - type: object
+          properties:
+            steps:
+              type: array
+              items:
+                $ref: "#/components/schemas/TestStep"
+            executions:
+              type: array
+              items:
+                $ref: "#/components/schemas/TestExecution"
+          required: [steps, executions]
+
+    CreateTestCaseBody:
+      type: object
+      properties:
+        title:
+          type: string
+      required: [title]
+
+    TestStep:
+      type: object
+      properties:
+        id:
+          type: integer
+        testCaseId:
+          type: integer
+        stepNumber:
+          type: integer
+        instruction:
+          type: string
+        testData:
+          type: string
+          nullable: true
+        expectedResult:
+          type: string
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Attachment"
+      required: [id, testCaseId, stepNumber, instruction, expectedResult, attachments]
+
+    CreateTestStepBody:
+      type: object
+      properties:
+        instruction:
+          type: string
+        testData:
+          type: string
+          nullable: true
+        expectedResult:
+          type: string
+      required: [instruction, expectedResult]
+
+    TestExecution:
+      type: object
+      properties:
+        id:
+          type: integer
+        testCaseId:
+          type: integer
+        iterationNumber:
+          type: integer
+        testerName:
+          type: string
+        actualResult:
+          type: string
+          nullable: true
+        comments:
+          type: string
+          nullable: true
+        passed:
+          type: boolean
+          nullable: true
+        executedAt:
+          type: string
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Attachment"
+      required: [id, testCaseId, iterationNumber, testerName, executedAt, attachments]
+
+    CreateExecutionBody:
+      type: object
+      properties:
+        testerName:
+          type: string
+        actualResult:
+          type: string
+          nullable: true
+        comments:
+          type: string
+          nullable: true
+        passed:
+          type: boolean
+          nullable: true
+      required: [testerName]
+
+    Attachment:
+      type: object
+      properties:
+        id:
+          type: integer
+        entityType:
+          type: string
+        entityId:
+          type: integer
+        field:
+          type: string
+        fileName:
+          type: string
+        fileUrl:
+          type: string
+        fileType:
+          type: string
+        createdAt:
+          type: string
+      required: [id, entityType, entityId, field, fileName, fileUrl, fileType, createdAt]
+
+    CreateAttachmentBody:
+      type: object
+      properties:
+        entityType:
+          type: string
+        entityId:
+          type: integer
+        field:
+          type: string
+        fileName:
+          type: string
+        fileUrl:
+          type: string
+        fileType:
+          type: string
+      required: [entityType, entityId, field, fileName, fileUrl, fileType]
+
+    DashboardSummary:
+      type: object
+      properties:
+        totalProjects:
+          type: integer
+        totalTestCases:
+          type: integer
+        totalExecutions:
+          type: integer
+        passRate:
+          type: number
+        recentProjectsCount:
+          type: integer
+      required: [totalProjects, totalTestCases, totalExecutions, passRate, recentProjectsCount]
+
+    ProjectStats:
+      type: object
+      properties:
+        projectId:
+          type: integer
+        projectName:
+          type: string
+        totalTestCases:
+          type: integer
+        totalExecutions:
+          type: integer
+        passed:
+          type: integer
+        failed:
+          type: integer
+        pending:
+          type: integer
+        passRate:
+          type: number
+        useCaseBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/UseCaseStat"
+      required: [projectId, projectName, totalTestCases, totalExecutions, passed, failed, pending, passRate, useCaseBreakdown]
+
+    UseCaseStat:
+      type: object
+      properties:
+        useCaseId:
+          type: integer
+        useCaseName:
+          type: string
+        passed:
+          type: integer
+        failed:
+          type: integer
+        pending:
+          type: integer
+      required: [useCaseId, useCaseName, passed, failed, pending]
+
+    ActivityItem:
+      type: object
+      properties:
+        executionId:
+          type: integer
+        testCaseName:
+          type: string
+        projectName:
+          type: string
+        testerName:
+          type: string
+        passed:
+          type: boolean
+          nullable: true
+        executedAt:
+          type: string
+      required: [executionId, testCaseName, projectName, testerName, executedAt]
