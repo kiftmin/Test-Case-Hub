@@ -9,38 +9,50 @@ import { useGetProjectByCode } from "@workspace/api-client-react";
 
 export default function TesterLogin() {
   const [, setLocation] = useLocation();
-  const [projectCode, setProjectCode] = useState("");
-  const [testerName, setTesterName] = useState("");
   const [error, setError] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
-
-  // We only fetch when they hit submit
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!projectCode.trim() || !testerName.trim()) {
-      setError("Both project code and your name are required.");
+    if (!username.trim() || !password.trim()) {
+      setError("Username and password are required.");
       return;
     }
 
     setIsVerifying(true);
     try {
-      // In a real app we'd query directly, but here we can just use the route change
-      // and let TestExecutionView handle the project loading, or fetch here first.
-      const res = await fetch(`/api/projects/code/${projectCode}`);
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
       if (res.ok) {
-        // Project exists
-        // Store tester name in session storage
-        sessionStorage.setItem("testerName", testerName);
-        setLocation(`/tester/${projectCode}`);
+        const data = await res.json();
+        const { token, user } = data;
+        
+        // Use our new auth utility
+        import("@/lib/auth").then(({ setAuth }) => {
+          setAuth(token, user);
+          
+          if (user.role === "TESTER") {
+            setLocation("/tester/dashboard");
+          } else {
+            setLocation("/");
+          }
+        });
       } else {
-        setError("Invalid project code. Please check with your QA lead.");
+        const errData = await res.json();
+        setError(errData.error || "Invalid credentials.");
       }
     } catch (err) {
-      setError("Failed to verify project. Please try again.");
+      setError("Login failed. Please check your connection.");
     } finally {
       setIsVerifying(false);
     }
   };
+
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
@@ -53,44 +65,46 @@ export default function TesterLogin() {
         </div>
 
         <Card className="border-border shadow-lg">
-          <CardHeader className="space-y-1 pb-6">
-            <CardTitle className="text-xl">Tester Access</CardTitle>
-            <CardDescription>
-              Enter your project code to begin test execution.
+            <CardHeader className="space-y-1 pb-6">
+            <CardTitle className="text-xl text-center">System Login</CardTitle>
+            <CardDescription className="text-center">
+              Enter your credentials to access your test dashboard.
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleLogin}>
             <CardContent className="space-y-4">
               {error && (
-                <div className="p-3 text-sm bg-destructive/10 text-destructive rounded-md font-medium">
+                <div className="p-3 text-sm bg-destructive/10 text-destructive rounded-md font-medium text-center border border-destructive/20">
                   {error}
                 </div>
               )}
               
               <div className="space-y-2">
-                <Label htmlFor="projectCode">Project Code</Label>
+                <Label htmlFor="username">Username</Label>
                 <Input
-                  id="projectCode"
-                  placeholder="e.g. PRJ-123"
-                  value={projectCode}
-                  onChange={(e) => setProjectCode(e.target.value.toUpperCase())}
-                  className="font-mono uppercase"
+                  id="username"
+                  placeholder="Enter your username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="bg-muted/30"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="testerName">Your Name</Label>
+                <Label htmlFor="password">Password</Label>
                 <Input
-                  id="testerName"
-                  placeholder="e.g. John Doe"
-                  value={testerName}
-                  onChange={(e) => setTesterName(e.target.value)}
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="bg-muted/30"
                 />
               </div>
             </CardContent>
             <CardFooter className="pt-2">
-              <Button type="submit" className="w-full" disabled={isVerifying}>
-                {isVerifying ? "Verifying..." : "Access Test Plan"}
+              <Button type="submit" className="w-full h-11" disabled={isVerifying}>
+                {isVerifying ? "Logging in..." : "Sign In"}
               </Button>
             </CardFooter>
           </form>

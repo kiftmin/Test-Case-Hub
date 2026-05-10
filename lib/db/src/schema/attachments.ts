@@ -1,6 +1,6 @@
 import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 export const attachmentsTable = pgTable("attachments", {
   id: serial("id").primaryKey(),
@@ -17,5 +17,6 @@ export const insertAttachmentSchema = createInsertSchema(attachmentsTable).omit(
   id: true,
   createdAt: true,
 });
-export type InsertAttachment = z.infer<typeof insertAttachmentSchema>;
+export type InsertAttachment = typeof attachmentsTable.$inferInsert;
 export type Attachment = typeof attachmentsTable.$inferSelect;
+

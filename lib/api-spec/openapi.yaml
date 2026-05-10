@@ -502,6 +502,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/TestExecution"
 
+  /executions/{executionId}/steps/{stepId}/result:
+    put:
+      operationId: updateStepResult
+      tags: [executions]
+      summary: Update a step result for an execution
+      parameters:
+        - name: executionId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: stepId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStepResultBody"
+      responses:
+        "200":
+          description: Updated step result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StepResult"
+
   # ── Attachments ───────────────────────────────────────────────────────────
   /attachments:
     post:
@@ -570,6 +600,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ProjectStats"
 
+  # ── Recent Activity ──────────────────────────────────────────────────────
   /dashboard/recent-activity:
     get:
       operationId: getRecentActivity
@@ -584,6 +615,146 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ActivityItem"
+
+  # ── Authentication ────────────────────────────────────────────────────────
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login to the system
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Invalid credentials
+
+  # ── Users & Assignments ───────────────────────────────────────────────────
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List all users
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserBody"
+      responses:
+        "201":
+          description: Created user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /projects/{projectId}/users:
+    get:
+      operationId: listProjectUsers
+      tags: [projects, users]
+      summary: List users assigned to a project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of project assignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectAssignment"
+    post:
+      operationId: assignUserToProject
+      tags: [projects, users]
+      summary: Assign a user to a project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectAssignmentBody"
+      responses:
+        "201":
+          description: Created assignment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectAssignment"
+
+  /projects/{projectId}/users/{userId}:
+    delete:
+      operationId: removeUserFromProject
+      tags: [projects, users]
+      summary: Remove a user from a project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /users/{userId}/projects:
+    get:
+      operationId: listUserProjects
+      tags: [users]
+      summary: List projects assigned to a user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TestProject"
 
 components:
   schemas:
@@ -764,28 +935,34 @@ components:
           type: integer
         testerName:
           type: string
-        actualResult:
+        status:
           type: string
-          nullable: true
-        comments:
-          type: string
-          nullable: true
-        passed:
-          type: boolean
-          nullable: true
         executedAt:
           type: string
-        attachments:
+        stepResults:
           type: array
           items:
-            $ref: "#/components/schemas/Attachment"
-      required: [id, testCaseId, iterationNumber, testerName, executedAt, attachments]
+            $ref: "#/components/schemas/StepResult"
+      required: [id, testCaseId, iterationNumber, testerName, status, executedAt]
 
     CreateExecutionBody:
       type: object
       properties:
         testerName:
           type: string
+        status:
+          type: string
+      required: [testerName]
+
+    StepResult:
+      type: object
+      properties:
+        id:
+          type: integer
+        executionId:
+          type: integer
+        stepId:
+          type: integer
         actualResult:
           type: string
           nullable: true
@@ -795,7 +972,26 @@ components:
         passed:
           type: boolean
           nullable: true
-      required: [testerName]
+        recordedAt:
+          type: string
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Attachment"
+      required: [id, executionId, stepId, recordedAt, attachments]
+
+    CreateStepResultBody:
+      type: object
+      properties:
+        actualResult:
+          type: string
+          nullable: true
+        comments:
+          type: string
+          nullable: true
+        passed:
+          type: boolean
+          nullable: true
 
     Attachment:
       type: object
@@ -907,3 +1103,81 @@ components:
         executedAt:
           type: string
       required: [executionId, testCaseName, projectName, testerName, executedAt]
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          nullable: true
+        role:
+          type: string
+        createdAt:
+          type: string
+      required: [id, username, name, role, createdAt]
+
+    CreateUserBody:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          nullable: true
+        role:
+          type: string
+      required: [username, password, name, role]
+
+    ProjectAssignment:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        userId:
+          type: integer
+        role:
+          type: string
+        assignedAt:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+      required: [id, projectId, userId, role, assignedAt]
+
+    CreateProjectAssignmentBody:
+      type: object
+      properties:
+        userId:
+          type: integer
+        role:
+          type: string
+      required: [userId, role]
+
+    LoginBody:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required: [username, password]
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+      required: [token, user]

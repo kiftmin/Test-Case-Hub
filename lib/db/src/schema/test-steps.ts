@@ -1,6 +1,6 @@
 import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod/v4";
+import { z } from "zod";
 import { testCasesTable } from "./test-cases";
 
 export const testStepsTable = pgTable("test_steps", {
@@ -17,5 +17,5 @@ export const insertTestStepSchema = createInsertSchema(testStepsTable).omit({
   id: true,
   createdAt: true,
 });
-export type InsertTestStep = z.infer<typeof insertTestStepSchema>;
+export type InsertTestStep = typeof testStepsTable.$inferInsert;
 export type TestStep = typeof testStepsTable.$inferSelect;

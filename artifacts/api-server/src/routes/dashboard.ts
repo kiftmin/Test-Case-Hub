@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, projectsTable, testCasesTable, executionsTable, useCasesTable, testStepsTable } from "@workspace/db";
+import { db, projectsTable, testCasesTable, executionsTable, useCasesTable, testStepsTable, stepResultsTable } from "@workspace/db";
 import { eq, desc, count, and, isNotNull } from "drizzle-orm";
 
 const router = Router();
@@ -12,27 +12,30 @@ router.get("/dashboard/summary", async (req, res) => {
       db.select({ count: count() }).from(executionsTable),
     ]);
 
-    const allExecs = await db.query.executionsTable.findMany({
-      where: isNotNull(executionsTable.passed),
-    });
+    // Use a more efficient pass rate query
+    const execStats = await db
+      .select({
+        total: count(),
+        passed: count(eq(executionsTable.status, "completed"))
+      })
+      .from(executionsTable);
 
-    const passed = allExecs.filter((e) => e.passed === true).length;
-    const passRate = allExecs.length > 0 ? Math.round((passed / allExecs.length) * 100) : 0;
+    const passed = Number(execStats[0]?.passed ?? 0);
+    const total = Number(execStats[0]?.total ?? 0);
+    const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
 
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const recentProjects = await db.query.projectsTable.findMany({
-      orderBy: desc(projectsTable.createdAt),
-    });
-    const recentProjectsCount = recentProjects.filter(
-      (p) => p.createdAt >= thirtyDaysAgo
-    ).length;
+    const [recentProjects] = await db
+      .select({ count: count() })
+      .from(projectsTable)
+      .where((projects, { gte }) => gte(projects.createdAt, thirtyDaysAgo));
 
     res.json({
-      totalProjects: projectCount[0]?.count ?? 0,
-      totalTestCases: testCaseCount[0]?.count ?? 0,
-      totalExecutions: execCount[0]?.count ?? 0,
+      totalProjects: Number(projectCount[0]?.count ?? 0),
+      totalTestCases: Number(testCaseCount[0]?.count ?? 0),
+      totalExecutions: total,
       passRate,
-      recentProjectsCount,
+      recentProjectsCount: Number(recentProjects?.count ?? 0),
     });
   } catch (err) {
     req.log.error({ err }, "Failed to get dashboard summary");
@@ -54,62 +57,63 @@ router.get("/dashboard/projects/:projectId/stats", async (req, res) => {
       where: eq(useCasesTable.projectId, projectId),
     });
 
+    const ucIds = useCases.map(u => u.id);
+    const testCases = ucIds.length > 0 ? await db.query.testCasesTable.findMany({
+      where: (tc, { inArray }) => inArray(tc.useCaseId, ucIds),
+    }) : [];
+
+    const tcIds = testCases.map(t => t.id);
+    const executions = tcIds.length > 0 ? await db.query.executionsTable.findMany({
+      where: (e, { inArray }) => inArray(e.testCaseId, tcIds),
+      orderBy: desc(executionsTable.iterationNumber),
+    }) : [];
+
     let totalTestCases = 0;
     let totalExecutions = 0;
     let totalPassed = 0;
     let totalFailed = 0;
     let totalPending = 0;
 
-    const useCaseBreakdown = await Promise.all(
-      useCases.map(async (uc) => {
-        const testCases = await db.query.testCasesTable.findMany({
-          where: eq(testCasesTable.useCaseId, uc.id),
-        });
+    const useCaseBreakdown = useCases.map((uc) => {
+      const ucTestCases = testCases.filter(tc => tc.useCaseId === uc.id);
+      let ucPassed = 0;
+      let ucFailed = 0;
+      let ucPending = 0;
 
-        totalTestCases += testCases.length;
+      totalTestCases += ucTestCases.length;
 
-        let ucPassed = 0;
-        let ucFailed = 0;
-        let ucPending = 0;
+      for (const tc of ucTestCases) {
+        const tcExecs = executions.filter(e => e.testCaseId === tc.id);
+        totalExecutions += tcExecs.length;
 
-        for (const tc of testCases) {
-          const executions = await db.query.executionsTable.findMany({
-            where: eq(executionsTable.testCaseId, tc.id),
-            orderBy: desc(executionsTable.iterationNumber),
-          });
-
-          totalExecutions += executions.length;
-
-          if (executions.length === 0) {
+        if (tcExecs.length === 0) {
+          ucPending++;
+          totalPending++;
+        } else {
+          const latest = tcExecs[0];
+          if (latest.status === "completed") {
+            ucPassed++;
+            totalPassed++;
+          } else if (latest.status === "failed") {
+            ucFailed++;
+            totalFailed++;
+          } else {
             ucPending++;
             totalPending++;
-          } else {
-            const latest = executions[0];
-            if (latest.passed === true) {
-              ucPassed++;
-              totalPassed++;
-            } else if (latest.passed === false) {
-              ucFailed++;
-              totalFailed++;
-            } else {
-              ucPending++;
-              totalPending++;
-            }
           }
         }
+      }
 
-        return {
-          useCaseId: uc.id,
-          useCaseName: `${uc.code}: ${uc.name}`,
-          passed: ucPassed,
-          failed: ucFailed,
-          pending: ucPending,
-        };
-      })
-    );
+      return {
+        useCaseId: uc.id,
+        useCaseName: `${uc.code}: ${uc.name}`,
+        passed: ucPassed,
+        failed: ucFailed,
+        pending: ucPending,
+      };
+    });
 
-    const passRate =
-      totalTestCases > 0 ? Math.round((totalPassed / totalTestCases) * 100) : 0;
+    const passRate = totalTestCases > 0 ? Math.round((totalPassed / totalTestCases) * 100) : 0;
 
     res.json({
       projectId: project.id,
@@ -135,35 +139,42 @@ router.get("/dashboard/recent-activity", async (req, res) => {
       limit: 20,
     });
 
-    const result = await Promise.all(
-      recentExecs.map(async (exec) => {
-        const testCase = await db.query.testCasesTable.findFirst({
-          where: eq(testCasesTable.id, exec.testCaseId),
-        });
+    if (recentExecs.length === 0) {
+      return res.json([]);
+    }
 
-        let projectName = "Unknown";
-        if (testCase) {
-          const useCase = await db.query.useCasesTable.findFirst({
-            where: eq(useCasesTable.id, testCase.useCaseId),
-          });
-          if (useCase) {
-            const project = await db.query.projectsTable.findFirst({
-              where: eq(projectsTable.id, useCase.projectId),
-            });
-            if (project) projectName = project.name;
-          }
-        }
+    // Batch-fetch related test cases
+    const tcIds = [...new Set(recentExecs.map(e => e.testCaseId))];
+    const testCaseRows = await db.query.testCasesTable.findMany({
+      where: (tc, { inArray }) => inArray(tc.id, tcIds),
+    });
 
-        return {
-          executionId: exec.id,
-          testCaseName: testCase?.title ?? "Unknown",
-          projectName,
-          testerName: exec.testerName,
-          passed: exec.passed,
-          executedAt: exec.executedAt.toISOString(),
-        };
-      })
-    );
+    // Batch-fetch related use cases
+    const ucIds = [...new Set(testCaseRows.map(tc => tc.useCaseId))];
+    const useCaseRows = ucIds.length > 0 ? await db.query.useCasesTable.findMany({
+      where: (uc, { inArray }) => inArray(uc.id, ucIds),
+    }) : [];
+
+    // Batch-fetch related projects
+    const pIds = [...new Set(useCaseRows.map(uc => uc.projectId))];
+    const projectRows = pIds.length > 0 ? await db.query.projectsTable.findMany({
+      where: (p, { inArray }) => inArray(p.id, pIds),
+    }) : [];
+
+    const result = recentExecs.map((exec) => {
+      const tc = testCaseRows.find(t => t.id === exec.testCaseId);
+      const uc = tc ? useCaseRows.find(u => u.id === tc.useCaseId) : undefined;
+      const proj = uc ? projectRows.find(p => p.id === uc.projectId) : undefined;
+
+      return {
+        executionId: exec.id,
+        testCaseName: tc?.title ?? "Unknown",
+        projectName: proj?.name ?? "Unknown",
+        testerName: exec.testerName,
+        passed: exec.status === "completed",
+        executedAt: exec.executedAt.toISOString(),
+      };
+    });
 
     res.json(result);
   } catch (err) {

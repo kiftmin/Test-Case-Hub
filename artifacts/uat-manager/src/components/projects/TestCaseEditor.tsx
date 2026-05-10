@@ -7,7 +7,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Save, GripVertical } from "lucide-react";
+import { Plus, Trash2, Save, GripVertical, Paperclip, Edit2, X, Check } from "lucide-react";
+import { StepAttachments } from "./StepAttachments";
 
 interface TestCaseEditorProps {
   testCaseId: number;
@@ -31,6 +32,37 @@ export function TestCaseEditor({ testCaseId }: TestCaseEditorProps) {
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkText, setBulkText] = useState("");
 
+  // Inline edit state
+  const [editingStepId, setEditingStepId] = useState<number | null>(null);
+  const [editInstruction, setEditInstruction] = useState("");
+  const [editTestData, setEditTestData] = useState("");
+  const [editExpectedResult, setEditExpectedResult] = useState("");
+
+  const startEdit = (step: { id: number; instruction: string; testData: string | null; expectedResult: string }) => {
+    setEditingStepId(step.id);
+    setEditInstruction(step.instruction);
+    setEditTestData(step.testData || "");
+    setEditExpectedResult(step.expectedResult);
+  };
+
+  const cancelEdit = () => {
+    setEditingStepId(null);
+  };
+
+  const handleSaveEdit = async (stepId: number) => {
+    if (!editInstruction.trim() || !editExpectedResult.trim()) return;
+    await updateStep.mutateAsync({
+      stepId,
+      data: {
+        instruction: editInstruction,
+        testData: editTestData || null,
+        expectedResult: editExpectedResult
+      }
+    });
+    await queryClient.invalidateQueries({ queryKey: getListTestStepsQueryKey(testCaseId) });
+    setEditingStepId(null);
+  };
+
   const handleAddStep = async () => {
     if (!newInstruction || !newExpectedResult) return;
     
@@ -43,7 +75,7 @@ export function TestCaseEditor({ testCaseId }: TestCaseEditorProps) {
       }
     });
     
-    queryClient.invalidateQueries({ queryKey: getListTestStepsQueryKey(testCaseId) });
+    await queryClient.invalidateQueries({ queryKey: getListTestStepsQueryKey(testCaseId) });
     setNewInstruction("");
     setNewTestData("");
     setNewExpectedResult("");
@@ -68,14 +100,14 @@ export function TestCaseEditor({ testCaseId }: TestCaseEditorProps) {
       data: { steps: parsedSteps }
     });
     
-    queryClient.invalidateQueries({ queryKey: getListTestStepsQueryKey(testCaseId) });
+    await queryClient.invalidateQueries({ queryKey: getListTestStepsQueryKey(testCaseId) });
     setBulkMode(false);
     setBulkText("");
   };
 
   const handleDelete = async (stepId: number) => {
     await deleteStep.mutateAsync({ stepId });
-    queryClient.invalidateQueries({ queryKey: getListTestStepsQueryKey(testCaseId) });
+    await queryClient.invalidateQueries({ queryKey: getListTestStepsQueryKey(testCaseId) });
   };
 
   if (isLoading) {
@@ -101,29 +133,102 @@ export function TestCaseEditor({ testCaseId }: TestCaseEditorProps) {
               <GripVertical className="w-4 h-4 text-muted-foreground/50 cursor-grab mt-auto" />
             </div>
             
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-1">
-                <span className="text-xs font-semibold text-muted-foreground uppercase">Action</span>
-                <p className="text-sm">{step.instruction}</p>
+            {editingStepId === step.id ? (
+              /* Edit mode */
+              <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase">Action</span>
+                  <Input
+                    value={editInstruction}
+                    onChange={e => setEditInstruction(e.target.value)}
+                    className="h-8 text-sm"
+                    autoFocus
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase">Data</span>
+                  <Input
+                    value={editTestData}
+                    onChange={e => setEditTestData(e.target.value)}
+                    className="h-8 text-sm"
+                    placeholder="Optional"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase">Expected</span>
+                  <Input
+                    value={editExpectedResult}
+                    onChange={e => setEditExpectedResult(e.target.value)}
+                    className="h-8 text-sm"
+                    onKeyDown={e => e.key === 'Enter' && handleSaveEdit(step.id)}
+                  />
+                </div>
               </div>
-              <div className="space-y-1">
-                <span className="text-xs font-semibold text-muted-foreground uppercase">Data</span>
-                <p className="text-sm text-muted-foreground">{step.testData || '-'}</p>
+            ) : (
+              /* View mode */
+              <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 cursor-pointer" onDoubleClick={() => startEdit(step)}>
+                <div className="space-y-1">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase">Action</span>
+                  <p className="text-sm">{step.instruction}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase">Data</span>
+                  <p className="text-sm text-muted-foreground">{step.testData || '-'}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase">Expected</span>
+                  <p className="text-sm font-medium">{step.expectedResult}</p>
+                </div>
               </div>
-              <div className="space-y-1">
-                <span className="text-xs font-semibold text-muted-foreground uppercase">Expected</span>
-                <p className="text-sm font-medium">{step.expectedResult}</p>
-              </div>
-            </div>
+            )}
 
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="opacity-0 group-hover:opacity-100 text-destructive self-start"
-              onClick={() => handleDelete(step.id)}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
+            <div className="flex flex-col items-center gap-2 self-start">
+              {editingStepId === step.id ? (
+                <>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="text-green-600 hover:text-green-700"
+                    onClick={() => handleSaveEdit(step.id)}
+                    disabled={updateStep.isPending}
+                  >
+                    <Check className="w-4 h-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="text-muted-foreground"
+                    onClick={cancelEdit}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground"
+                    onClick={() => startEdit(step)}
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="opacity-0 group-hover:opacity-100 text-destructive"
+                    onClick={() => handleDelete(step.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                  <StepAttachments 
+                    stepId={step.id} 
+                    testCaseId={testCaseId} 
+                    attachments={step.attachments || []} 
+                  />
+                </>
+              )}
+            </div>
           </div>
         ))}
 
@@ -143,7 +248,7 @@ export function TestCaseEditor({ testCaseId }: TestCaseEditorProps) {
               <code className="bg-muted px-1 rounded">Instruction | Expected Result</code>
             </p>
             <Textarea 
-              placeholder="Click Login | user/pass | Navigates to dashboard&#10;Click Profile | | Shows profile modal"
+              placeholder={"Click Login | user/pass | Navigates to dashboard\nClick Profile | | Shows profile modal"}
               className="font-mono text-sm h-32"
               value={bulkText}
               onChange={e => setBulkText(e.target.value)}

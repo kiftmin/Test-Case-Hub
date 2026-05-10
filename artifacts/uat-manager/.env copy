@@ -1,0 +1,4 @@
+DATABASE_URL=postgresql://neondb_owner:npg_TdaPpt92OmNR@ep-winter-sun-amflvahi-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+SESSION_SECRET=ce76cd19c1419e8a896d3d9e2ea71023fb101d58dc4aa6c1d472dc59028d6e55
+BASE_PATH=/
+PORT=5173

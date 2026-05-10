@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, FolderKanban, PlaySquare, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, FolderKanban, PlaySquare, Settings, LogOut, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Sidebar() {
@@ -8,6 +8,7 @@ export function Sidebar() {
   const navigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
     { name: "Projects", href: "/projects", icon: FolderKanban },
+    { name: "Users", href: "/users", icon: UserPlus },
     { name: "Tester Portal", href: "/tester", icon: PlaySquare },
   ];
 

@@ -11,7 +11,10 @@ import ProjectEdit from "@/pages/projects/ProjectEdit";
 import ProjectDetail from "@/pages/projects/ProjectDetail";
 import ProjectStats from "@/pages/projects/ProjectStats";
 import TesterLogin from "@/pages/tester/TesterLogin";
+import TesterDashboard from "@/pages/tester/TesterDashboard";
 import TestExecutionView from "@/pages/tester/TestExecutionView";
+import ProjectUsers from "@/pages/projects/ProjectUsers";
+import UserManagement from "@/pages/Users";
 
 const queryClient = new QueryClient();
 
@@ -23,8 +26,11 @@ function Router() {
       <Route path="/projects/new" component={ProjectCreate} />
       <Route path="/projects/:projectId/edit" component={ProjectEdit} />
       <Route path="/projects/:projectId/stats" component={ProjectStats} />
+      <Route path="/projects/:projectId/users" component={ProjectUsers} />
+      <Route path="/users" component={UserManagement} />
       <Route path="/projects/:projectId" component={ProjectDetail} />
       <Route path="/tester" component={TesterLogin} />
+      <Route path="/tester/dashboard" component={TesterDashboard} />
       <Route path="/tester/:projectCode" component={TestExecutionView} /> 
       <Route component={NotFound} />
     </Switch>

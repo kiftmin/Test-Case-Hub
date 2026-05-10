@@ -85,7 +85,7 @@ router.post("/test-cases/:testCaseId/steps/bulk", async (req, res) => {
     });
     let nextStepNumber = existing.length + 1;
 
-    const rows = body.steps.map((s) => ({
+    const rows = body.steps.map((s: any) => ({
       testCaseId,
       stepNumber: nextStepNumber++,
       instruction: s.instruction,
@@ -112,10 +112,12 @@ router.put("/steps/:stepId", async (req, res) => {
   try {
     const stepId = parseInt(req.params.stepId);
     if (isNaN(stepId)) return res.status(400).json({ error: "Invalid step ID" });
+    
+    req.log.info({ stepId }, "Updating test step");
 
     const body = CreateTestStepBody.parse(req.body);
 
-    const [updated] = await db
+    const updateQuery = db
       .update(testStepsTable)
       .set({
         instruction: body.instruction,
@@ -125,7 +127,23 @@ router.put("/steps/:stepId", async (req, res) => {
       .where(eq(testStepsTable.id, stepId))
       .returning();
 
-    if (!updated) return res.status(404).json({ error: "Step not found" });
+    req.log.info({ sql: updateQuery.toSQL() }, "Executing step update SQL");
+    const [updated] = await updateQuery;
+
+    if (!updated) {
+      // If returning() is empty, try a direct select to see if the row exists at all
+      const exists = await db.query.testStepsTable.findFirst({
+        where: eq(testStepsTable.id, stepId),
+      });
+      
+      if (!exists) {
+        req.log.warn({ stepId }, "Step genuinely not found in DB");
+        return res.status(404).json({ error: "Step not found" });
+      } else {
+        req.log.error({ stepId, exists }, "Step exists but update returned empty array. Potential schema mismatch or trigger issue.");
+        return res.status(500).json({ error: "Failed to update step despite it existing" });
+      }
+    }
 
     const attachments = await db.query.attachmentsTable.findMany({
       where: eq(attachmentsTable.entityId, stepId),
@@ -139,7 +157,7 @@ router.put("/steps/:stepId", async (req, res) => {
         .map((a) => ({ ...a, createdAt: a.createdAt.toISOString() })),
     });
   } catch (err) {
-    req.log.error({ err }, "Failed to update test step");
+    req.log.error({ err, stepId: req.params.stepId }, "Failed to update test step");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -149,10 +167,13 @@ router.delete("/steps/:stepId", async (req, res) => {
     const stepId = parseInt(req.params.stepId);
     if (isNaN(stepId)) return res.status(400).json({ error: "Invalid step ID" });
 
-    await db.delete(testStepsTable).where(eq(testStepsTable.id, stepId));
+    const deleteQuery = db.delete(testStepsTable).where(eq(testStepsTable.id, stepId));
+    req.log.info({ sql: deleteQuery.toSQL(), stepId }, "Deleting test step");
+    await deleteQuery;
+    
     res.status(204).send();
   } catch (err) {
-    req.log.error({ err }, "Failed to delete test step");
+    req.log.error({ err, stepId: req.params.stepId }, "Failed to delete test step");
     res.status(500).json({ error: "Internal server error" });
   }
 });

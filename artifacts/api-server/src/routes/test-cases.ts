@@ -53,17 +53,23 @@ router.put("/test-cases/:testCaseId", async (req, res) => {
 
     const body = CreateTestCaseBody.parse(req.body);
 
-    const [updated] = await db
+    const updateQuery = db
       .update(testCasesTable)
       .set({ title: body.title })
       .where(eq(testCasesTable.id, testCaseId))
       .returning();
 
-    if (!updated) return res.status(404).json({ error: "Test case not found" });
+    req.log.info({ sql: updateQuery.toSQL(), testCaseId }, "Executing test case update");
+    const [updated] = await updateQuery;
+
+    if (!updated) {
+      req.log.warn({ testCaseId }, "Test case not found for update");
+      return res.status(404).json({ error: "Test case not found" });
+    }
 
     res.json({ ...updated, createdAt: updated.createdAt.toISOString() });
   } catch (err) {
-    req.log.error({ err }, "Failed to update test case");
+    req.log.error({ err, testCaseId: req.params.testCaseId }, "Failed to update test case");
     res.status(500).json({ error: "Internal server error" });
   }
 });

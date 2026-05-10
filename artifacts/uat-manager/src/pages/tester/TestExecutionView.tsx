@@ -1,160 +1,308 @@
-import { useState } from "react";
-import { useParams, Link } from "wouter";
+import { useState, useEffect } from "react";
+import { useParams, Link, useLocation } from "wouter";
 import { 
   useGetProjectByCode, getGetProjectByCodeQueryKey,
   useListExecutions, getListExecutionsQueryKey,
-  useCreateExecution
+  useCreateExecution, useUpdateExecution, useUpdateStepResult
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Check, X, AlertCircle, Save, LogOut } from "lucide-react";
+import { Check, X, AlertCircle, Save, LogOut, Paperclip, FileIcon, ClipboardCheck, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getAuthUser, clearAuth } from "@/lib/auth";
+
+import { EvidenceUpload } from "@/components/tester/EvidenceUpload";
+import { MobileShare } from "@/components/tester/MobileShare";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 // A component for executing a single test case
-function TestCaseExecutor({ testCase, projectCode, testerName, onComplete }: any) {
+function TestCaseExecutor({ testCase, projectCode, user, onComplete }: any) {
   const queryClient = useQueryClient();
-  const { data: executions } = useListExecutions(testCase.id, {
+  const { data: executions, isLoading: isLoadingExecutions } = useListExecutions(testCase.id, {
     query: { enabled: !!testCase.id, queryKey: getListExecutionsQueryKey(testCase.id) }
   });
   
   const createExecution = useCreateExecution();
+  const updateExecution = useUpdateExecution();
+  const updateStepResult = useUpdateStepResult();
 
-  const [actualResult, setActualResult] = useState("");
-  const [comments, setComments] = useState("");
-  const [status, setStatus] = useState<boolean | null>(null);
+  const [activeExecutionId, setActiveExecutionId] = useState<number | null>(null);
+  const [stepResults, setStepResults] = useState<Record<number, { id?: number; actualResult: string; comments: string; passed: boolean | null; attachments: any[] }>>({});
 
-  const handleSubmit = async () => {
-    if (status === null) return;
-    
-    await createExecution.mutateAsync({
+  // Find the active (in_progress) execution
+  const activeExecution = executions?.find(e => e.status === 'in_progress' && e.testerName === user.name);
+  const lastCompletedExecution = executions?.find(e => e.status !== 'in_progress');
+
+  // Initialize step results when an execution is active
+  useEffect(() => {
+    if (activeExecution) {
+      setActiveExecutionId(activeExecution.id);
+      const initialResults: any = {};
+      activeExecution.stepResults?.forEach((sr: any) => {
+        initialResults[sr.stepId] = {
+          id: sr.id,
+          actualResult: sr.actualResult || "",
+          comments: sr.comments || "",
+          passed: sr.passed,
+          attachments: sr.attachments || []
+        };
+      });
+      setStepResults(initialResults);
+    } else {
+      setActiveExecutionId(null);
+      setStepResults({});
+    }
+  }, [activeExecution]);
+
+  const handleStartExecution = async () => {
+    const res = await createExecution.mutateAsync({
       testCaseId: testCase.id,
       data: {
-        testerName,
-        actualResult,
-        comments,
-        passed: status
+        testerName: user.name,
+        status: "in_progress"
+      }
+    });
+    queryClient.invalidateQueries({ queryKey: getListExecutionsQueryKey(testCase.id) });
+    setActiveExecutionId(res.id);
+  };
+
+  const handleUpdateStep = async (stepId: number, data: any) => {
+    if (!activeExecutionId) return;
+    
+    setStepResults(prev => ({
+      ...prev,
+      [stepId]: { ...prev[stepId], ...data }
+    }));
+
+    await updateStepResult.mutateAsync({
+      executionId: activeExecutionId,
+      stepId,
+      data: {
+        actualResult: data.actualResult ?? stepResults[stepId]?.actualResult,
+        comments: data.comments ?? stepResults[stepId]?.comments,
+        passed: data.passed ?? stepResults[stepId]?.passed,
       }
     });
     
+    queryClient.invalidateQueries({ queryKey: getListExecutionsQueryKey(testCase.id) });
+  };
+
+  const handleCompleteExecution = async (isPass: boolean) => {
+    if (!activeExecutionId) return;
+
+    await updateExecution.mutateAsync({
+      executionId: activeExecutionId,
+      data: {
+        testerName: user.name,
+        status: isPass ? "completed" : "failed"
+      }
+    });
+
     queryClient.invalidateQueries({ queryKey: getListExecutionsQueryKey(testCase.id) });
     queryClient.invalidateQueries({ queryKey: getGetProjectByCodeQueryKey(projectCode) });
     onComplete();
   };
 
-  const lastExecution = executions?.[0];
+  if (isLoadingExecutions) return <div className="p-8 text-center animate-pulse">Loading execution history...</div>;
+
+  if (!activeExecutionId) {
+    return (
+      <Card className="mb-6 border-border shadow-md">
+        <CardHeader className="bg-muted/30 pb-4">
+          <div className="flex justify-between items-start gap-4">
+            <div>
+              <div className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">
+                TC-{testCase.caseNumber}
+              </div>
+              <CardTitle className="text-xl">{testCase.title}</CardTitle>
+            </div>
+            {lastCompletedExecution && (
+              <div className={cn(
+                "px-3 py-1 rounded-full text-xs font-semibold border",
+                lastCompletedExecution.status === "completed" 
+                  ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400" 
+                  : "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400"
+              )}>
+                Last: {lastCompletedExecution.status === "completed" ? 'PASSED' : 'FAILED'}
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="pt-8 flex flex-col items-center justify-center text-center space-y-4">
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
+            <ClipboardCheck className="w-8 h-8" />
+          </div>
+          <div>
+            <h3 className="text-lg font-medium">Ready to start?</h3>
+            <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+              You will record pass/fail results for each of the {testCase.steps?.length || 0} steps in this test case.
+            </p>
+          </div>
+          <Button onClick={handleStartExecution} className="w-full max-w-xs h-11" disabled={createExecution.isPending}>
+            {createExecution.isPending ? "Initializing..." : "Start New Execution"}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const allStepsDone = testCase.steps?.every((s: any) => stepResults[s.id]?.passed !== undefined && stepResults[s.id]?.passed !== null);
+  const anyStepFailed = testCase.steps?.some((s: any) => stepResults[s.id]?.passed === false);
 
   return (
-    <Card className="mb-6 border-2 border-primary/20 shadow-md">
-      <CardHeader className="bg-primary/5 pb-4">
-        <div className="flex justify-between items-start gap-4">
+    <Card className="mb-6 border-primary/20 shadow-lg overflow-hidden">
+      <CardHeader className="bg-primary/5 pb-4 border-b">
+        <div className="flex justify-between items-center">
           <div>
             <div className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">
-              TC-{testCase.caseNumber}
+              Executing TC-{testCase.caseNumber}
             </div>
             <CardTitle className="text-xl">{testCase.title}</CardTitle>
           </div>
-          {lastExecution && (
-            <div className={cn(
-              "px-3 py-1 rounded-full text-xs font-semibold border",
-              lastExecution.passed 
-                ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400" 
-                : lastExecution.passed === false 
-                  ? "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400"
-                  : "bg-gray-100 text-gray-800 border-gray-200"
-            )}>
-              Last: {lastExecution.passed ? 'PASSED' : lastExecution.passed === false ? 'FAILED' : 'PENDING'}
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold px-2 py-1 bg-yellow-100 text-yellow-800 rounded border border-yellow-200 uppercase">
+              In Progress
+            </span>
+          </div>
         </div>
       </CardHeader>
       
-      <CardContent className="pt-6 space-y-8">
-        <div className="space-y-4">
-          <h4 className="text-sm font-semibold uppercase text-muted-foreground border-b pb-2">Execution Steps</h4>
-          {testCase.steps?.length > 0 ? (
-            <div className="space-y-3">
-              {testCase.steps.map((step: any) => (
-                <div key={step.id} className="flex gap-4 p-3 bg-muted/30 rounded-lg">
-                  <div className="w-6 h-6 rounded bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">
+      <CardContent className="p-0">
+        <div className="divide-y">
+          {testCase.steps?.map((step: any) => {
+            const result = stepResults[step.id] || { actualResult: "", comments: "", passed: null, attachments: [] };
+            return (
+              <div key={step.id} className="p-4 md:p-6 space-y-6 hover:bg-muted/5 transition-colors">
+                <div className="flex gap-4">
+                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold shrink-0">
                     {step.stepNumber}
                   </div>
-                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <p className="text-sm font-medium">{step.instruction}</p>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">Instruction</span>
+                      <p className="text-sm font-medium leading-relaxed">{step.instruction}</p>
                       {step.testData && (
-                        <div className="mt-1 flex items-center gap-2">
-                          <span className="text-[10px] uppercase font-semibold text-muted-foreground">Data:</span>
-                          <code className="text-xs bg-muted px-1.5 py-0.5 rounded text-foreground">{step.testData}</code>
+                        <div className="mt-2 p-2 bg-muted rounded border border-border flex items-center gap-2">
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground shrink-0">Test Data:</span>
+                          <code className="text-xs font-mono">{step.testData}</code>
                         </div>
                       )}
                     </div>
-                    <div className="sm:border-l sm:pl-4">
-                      <span className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Expected</span>
-                      <p className="text-sm text-primary/80 font-medium">{step.expectedResult}</p>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">Expected Result</span>
+                      <p className="text-sm text-primary/90 font-medium leading-relaxed">{step.expectedResult}</p>
+                      
+                      {step.attachments?.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {step.attachments.map((file: any) => (
+                            <a 
+                              key={file.id}
+                              href={file.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100 transition-colors text-xs font-medium"
+                            >
+                              <Paperclip className="w-3 h-3" />
+                              {file.fileName}
+                            </a>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-sm text-muted-foreground italic">No steps defined for this test case.</div>
-          )}
+
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-6 pt-2">
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase">Actual Result</label>
+                      <Textarea 
+                        placeholder="Describe what happened..." 
+                        className="h-20 text-sm resize-none"
+                        value={result.actualResult}
+                        onChange={(e) => setStepResults(prev => ({ ...prev, [step.id]: { ...result, actualResult: e.target.value } }))}
+                        onBlur={(e) => handleUpdateStep(step.id, { actualResult: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase">Comments / Notes</label>
+                      <Textarea 
+                        placeholder="Internal notes..." 
+                        className="h-20 text-sm resize-none"
+                        value={result.comments}
+                        onChange={(e) => setStepResults(prev => ({ ...prev, [step.id]: { ...result, comments: e.target.value } }))}
+                        onBlur={(e) => handleUpdateStep(step.id, { comments: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase">Evidence / Screenshots</label>
+                      {result.id ? (
+                        <EvidenceUpload 
+                          entityId={result.id} 
+                          entityType="step_result" 
+                          attachments={result.attachments}
+                          onUpdate={() => queryClient.invalidateQueries({ queryKey: getListExecutionsQueryKey(testCase.id) })}
+                        />
+                      ) : (
+                        <div className="text-xs text-muted-foreground italic bg-muted/20 p-3 rounded-md border border-dashed">
+                          Mark step status or enter result to enable uploads.
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="pt-2">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-2">Step Status</label>
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm"
+                          variant={result.passed === true ? "default" : "outline"}
+                          className={cn("flex-1 h-10", result.passed === true && "bg-green-600 hover:bg-green-700")}
+                          onClick={() => handleUpdateStep(step.id, { passed: true })}
+                        >
+                          <Check className="w-4 h-4 mr-2" /> Pass
+                        </Button>
+                        <Button 
+                          size="sm"
+                          variant={result.passed === false ? "destructive" : "outline"}
+                          className="flex-1 h-10"
+                          onClick={() => handleUpdateStep(step.id, { passed: false })}
+                        >
+                          <X className="w-4 h-4 mr-2" /> Fail
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        <div className="space-y-4 border-t pt-6">
-          <h4 className="text-sm font-semibold uppercase text-muted-foreground">Record Result</h4>
-          
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs font-medium block mb-1">Actual Result</label>
-              <Textarea 
-                placeholder="What actually happened?" 
-                value={actualResult}
-                onChange={e => setActualResult(e.target.value)}
-                className="h-20"
-              />
-            </div>
-            
-            <div>
-              <label className="text-xs font-medium block mb-1">Comments / Evidence Link</label>
-              <Input 
-                placeholder="Optional notes or links to screenshots" 
-                value={comments}
-                onChange={e => setComments(e.target.value)}
-              />
-            </div>
-            
-            <div className="pt-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
-              <div className="flex gap-2 w-full sm:w-auto">
-                <Button 
-                  type="button"
-                  variant={status === true ? "default" : "outline"} 
-                  className={cn("flex-1 sm:w-32", status === true && "bg-green-600 hover:bg-green-700")}
-                  onClick={() => setStatus(true)}
-                >
-                  <Check className="w-4 h-4 mr-2" /> Pass
-                </Button>
-                <Button 
-                  type="button"
-                  variant={status === false ? "destructive" : "outline"} 
-                  className="flex-1 sm:w-32"
-                  onClick={() => setStatus(false)}
-                >
-                  <X className="w-4 h-4 mr-2" /> Fail
-                </Button>
-              </div>
-              
-              <Button 
-                onClick={handleSubmit} 
-                disabled={status === null || createExecution.isPending}
-                className="w-full sm:w-auto"
-              >
-                {createExecution.isPending ? "Saving..." : "Save Result"}
-              </Button>
-            </div>
+
+        <div className="p-6 bg-muted/30 flex flex-col sm:flex-row items-center justify-between gap-4 border-t">
+          <div className="text-sm text-muted-foreground">
+            {allStepsDone 
+              ? <span className="flex items-center text-green-600 font-medium"><Check className="w-4 h-4 mr-2" /> All steps recorded</span>
+              : <span>Progress: {Object.values(stepResults).filter(r => r.passed !== null).length} / {testCase.steps?.length} steps completed</span>
+            }
+          </div>
+          <div className="flex gap-3 w-full sm:w-auto">
+            <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => onComplete()}>
+              <Save className="w-4 h-4 mr-2" /> Save & Resume Later
+            </Button>
+            <Button 
+              className={cn("flex-1 sm:flex-none", allStepsDone && !anyStepFailed ? "bg-green-600 hover:bg-green-700" : "")}
+              disabled={!allStepsDone || updateExecution.isPending}
+              onClick={() => handleCompleteExecution(!anyStepFailed)}
+            >
+              {anyStepFailed ? "Submit Failure" : "Complete Test"}
+            </Button>
           </div>
         </div>
       </CardContent>
@@ -162,16 +310,31 @@ function TestCaseExecutor({ testCase, projectCode, testerName, onComplete }: any
   );
 }
 
+
 export default function TestExecutionView() {
   const { projectCode } = useParams();
+  const [, setLocation] = useLocation();
   const code = projectCode?.toUpperCase() || "";
-  const testerName = sessionStorage.getItem("testerName") || "Tester";
+  const user = getAuthUser();
+
+  useEffect(() => {
+    if (!user) {
+      setLocation("/tester");
+    }
+  }, [user, setLocation]);
 
   const { data: project, isLoading } = useGetProjectByCode(code, {
-    query: { enabled: !!code, queryKey: getGetProjectByCodeQueryKey(code) }
+    query: { enabled: !!code && !!user, queryKey: getGetProjectByCodeQueryKey(code) }
   });
 
   const [activeTestCaseId, setActiveTestCaseId] = useState<number | null>(null);
+
+  if (!user) return null;
+
+  const handleLogout = () => {
+    clearAuth();
+    setLocation("/tester");
+  };
 
   if (isLoading) {
     return <div className="min-h-screen p-8 flex items-center justify-center animate-pulse">Loading Test Plan...</div>;
@@ -206,15 +369,31 @@ export default function TestExecutionView() {
               <p className="text-xs text-muted-foreground font-mono">v{project.version}.0</p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="hidden md:flex items-center gap-2 bg-primary/5 border-primary/20 text-primary hover:bg-primary/10">
+                  <Smartphone className="w-4 h-4" />
+                  Mobile Access
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Mobile Execution</DialogTitle>
+                  <DialogDescription>
+                    Switch to your mobile device to capture evidence easily.
+                  </DialogDescription>
+                </DialogHeader>
+                <MobileShare />
+              </DialogContent>
+            </Dialog>
+
             <span className="text-sm font-medium hidden sm:inline-block bg-muted px-2 py-1 rounded">
-              Tester: {testerName}
+              Tester: {user.name}
             </span>
-            <Link href="/tester">
-              <Button variant="ghost" size="icon" title="Exit Execution">
-                <LogOut className="w-5 h-5 text-muted-foreground" />
-              </Button>
-            </Link>
+            <Button variant="ghost" size="icon" title="Exit Execution" onClick={handleLogout}>
+              <LogOut className="w-5 h-5 text-muted-foreground" />
+            </Button>
           </div>
         </div>
       </header>
@@ -235,7 +414,7 @@ export default function TestExecutionView() {
               <TestCaseExecutor 
                 testCase={activeTestCase} 
                 projectCode={code} 
-                testerName={testerName}
+                user={user}
                 onComplete={() => setActiveTestCaseId(null)}
               />
             </div>
@@ -265,8 +444,8 @@ export default function TestExecutionView() {
                 <div className="space-y-1">
                   {useCase.testCases.map((tc) => {
                     const lastExec = tc.executions?.[0];
-                    const isPassed = lastExec?.passed === true;
-                    const isFailed = lastExec?.passed === false;
+                    const isPassed = lastExec?.status === "completed";
+                    const isFailed = lastExec?.status === "failed";
                     
                     return (
                       <button

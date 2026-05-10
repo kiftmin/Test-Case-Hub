@@ -1,14 +1,15 @@
 import { Link } from "wouter";
-import { useGetDashboardSummary, useGetRecentActivity } from "@workspace/api-client-react";
+import { useGetDashboardSummary, useGetRecentActivity, useListUsers } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, CheckCircle2, FolderKanban, ListTodo } from "lucide-react";
+import { Activity, CheckCircle2, FolderKanban, ListTodo, Users } from "lucide-react";
 import { format } from "date-fns";
 
 export default function Dashboard() {
   const { data: summary, isLoading: isSummaryLoading } = useGetDashboardSummary();
   const { data: recentActivity, isLoading: isActivityLoading } = useGetRecentActivity();
+  const { data: users } = useListUsers();
 
   return (
     <AppLayout>
@@ -54,17 +55,17 @@ export default function Dashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Executions</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             {isSummaryLoading ? (
               <div className="h-8 w-16 bg-muted animate-pulse rounded" />
             ) : (
-              <div className="text-2xl font-bold">{summary?.totalExecutions || 0}</div>
+              <div className="text-2xl font-bold">{users?.length || 0}</div>
             )}
             <p className="text-xs text-muted-foreground mt-1">
-              Test runs recorded
+              Registered system users
             </p>
           </CardContent>
         </Card>

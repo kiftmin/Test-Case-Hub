@@ -4,7 +4,8 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Download, FileJson } from "lucide-react";
+import { exportResultsToExcel } from "@/lib/export-utils";
 import {
   BarChart,
   Bar,
@@ -76,6 +77,12 @@ export default function ProjectStats() {
       <PageHeader 
         title={`${stats.projectName} Analytics`}
         description="Execution statistics and test coverage breakdown."
+        actions={
+          <Button variant="outline" size="sm" onClick={() => exportResultsToExcel(stats)}>
+            <Download className="w-4 h-4 mr-2" />
+            Export Results (Excel)
+          </Button>
+        }
       />
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">

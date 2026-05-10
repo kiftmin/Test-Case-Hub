@@ -4,7 +4,14 @@ import { useGetProject, getGetProjectQueryKey } from "@workspace/api-client-reac
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Edit2, Plus, LayoutList } from "lucide-react";
+import { ChevronLeft, Edit2, Plus, LayoutList, Users, Download, FileJson, FileText } from "lucide-react";
+import { exportProjectToPDF, exportProjectToExcel } from "@/lib/export-utils";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
 import { UseCaseTree } from "@/components/projects/UseCaseTree";
 import { TestCaseEditor } from "@/components/projects/TestCaseEditor";
 import { Card } from "@/components/ui/card";
@@ -56,6 +63,30 @@ export default function ProjectDetail() {
         description={`Code: ${project.projectCode} • Version ${project.version}.0`}
         actions={
           <>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Download className="w-4 h-4 mr-2" />
+                  Export Plan
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => exportProjectToPDF(project)}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  Download PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportProjectToExcel(project)}>
+                  <FileJson className="w-4 h-4 mr-2" />
+                  Download Excel
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Link href={`/projects/${id}/users`}>
+              <Button variant="outline" size="sm">
+                <Users className="w-4 h-4 mr-2" />
+                Manage Users
+              </Button>
+            </Link>
             <Link href={`/projects/${id}/stats`}>
               <Button variant="outline" size="sm">
                 <LayoutList className="w-4 h-4 mr-2" />

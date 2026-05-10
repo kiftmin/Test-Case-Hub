@@ -54,17 +54,23 @@ router.put("/use-cases/:useCaseId", async (req, res) => {
 
     const body = CreateUseCaseBody.parse(req.body);
 
-    const [updated] = await db
+    const updateQuery = db
       .update(useCasesTable)
       .set({ name: body.name })
       .where(eq(useCasesTable.id, useCaseId))
       .returning();
 
-    if (!updated) return res.status(404).json({ error: "Use case not found" });
+    req.log.info({ sql: updateQuery.toSQL(), useCaseId }, "Executing use case update");
+    const [updated] = await updateQuery;
+
+    if (!updated) {
+      req.log.warn({ useCaseId }, "Use case not found for update");
+      return res.status(404).json({ error: "Use case not found" });
+    }
 
     res.json({ ...updated, createdAt: updated.createdAt.toISOString() });
   } catch (err) {
-    req.log.error({ err }, "Failed to update use case");
+    req.log.error({ err, useCaseId: req.params.useCaseId }, "Failed to update use case");
     res.status(500).json({ error: "Internal server error" });
   }
 });

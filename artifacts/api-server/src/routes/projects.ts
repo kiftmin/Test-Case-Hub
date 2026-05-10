@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, projectsTable, useCasesTable, testCasesTable, testStepsTable, executionsTable, attachmentsTable } from "@workspace/db";
+import { db, projectsTable, useCasesTable, testCasesTable, testStepsTable, executionsTable, attachmentsTable, stepResultsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { CreateProjectBody } from "@workspace/api-zod";
 import { nanoid } from "nanoid";
@@ -25,78 +25,92 @@ async function buildProjectDetail(projectId: number) {
     orderBy: useCasesTable.id,
   });
 
-  const useCasesWithDetail = await Promise.all(
-    useCases.map(async (uc) => {
-      const testCases = await db.query.testCasesTable.findMany({
-        where: eq(testCasesTable.useCaseId, uc.id),
-        orderBy: testCasesTable.caseNumber,
-      });
+  const ucIds = useCases.map(u => u.id);
+  const testCases = ucIds.length > 0 ? await db.query.testCasesTable.findMany({
+    where: (tc, { inArray }) => inArray(tc.useCaseId, ucIds),
+    orderBy: testCasesTable.caseNumber,
+  }) : [];
 
-      const testCasesWithDetail = await Promise.all(
-        testCases.map(async (tc) => {
-          const [steps, executions] = await Promise.all([
-            db.query.testStepsTable.findMany({
-              where: eq(testStepsTable.testCaseId, tc.id),
-              orderBy: testStepsTable.stepNumber,
-            }),
-            db.query.executionsTable.findMany({
-              where: eq(executionsTable.testCaseId, tc.id),
-              orderBy: desc(executionsTable.iterationNumber),
-            }),
-          ]);
+  const tcIds = testCases.map(t => t.id);
 
-          const stepsWithAttachments = await Promise.all(
-            steps.map(async (step) => {
-              const attachments = await db.query.attachmentsTable.findMany({
-                where: eq(attachmentsTable.entityId, step.id),
-              });
-              return {
-                ...step,
-                attachments: attachments.filter((a) => a.entityType === "step"),
-              };
-            })
-          );
+  const [steps, executions] = await Promise.all([
+    tcIds.length > 0 ? db.query.testStepsTable.findMany({
+      where: (ts, { inArray }) => inArray(ts.testCaseId, tcIds),
+      orderBy: testStepsTable.stepNumber,
+    }) : Promise.resolve([]),
+    tcIds.length > 0 ? db.query.executionsTable.findMany({
+      where: (e, { inArray }) => inArray(e.testCaseId, tcIds),
+      orderBy: desc(executionsTable.iterationNumber),
+    }) : Promise.resolve([]),
+  ]);
 
-          const execsWithAttachments = await Promise.all(
-            executions.map(async (exec) => {
-              const attachments = await db.query.attachmentsTable.findMany({
-                where: eq(attachmentsTable.entityId, exec.id),
-              });
-              return {
-                ...exec,
-                executedAt: exec.executedAt.toISOString(),
-                attachments: attachments.filter((a) => a.entityType === "execution"),
-              };
-            })
-          );
+  const stepIds = steps.map(s => s.id);
+  const execIds = executions.map(e => e.id);
 
-          return {
-            ...tc,
-            createdAt: tc.createdAt.toISOString(),
-            steps: stepsWithAttachments.map((s) => ({
-              ...s,
-              createdAt: s.createdAt.toISOString(),
-              attachments: s.attachments.map((a) => ({ ...a, createdAt: a.createdAt.toISOString() })),
-            })),
-            executions: execsWithAttachments,
-          };
-        })
-      );
+  const [stepAttachments, stepResults] = await Promise.all([
+    stepIds.length > 0 ? db.query.attachmentsTable.findMany({
+      where: (a, { and, eq, inArray }) => and(
+        eq(a.entityType, "step"),
+        inArray(a.entityId, stepIds)
+      ),
+    }) : Promise.resolve([]),
+    execIds.length > 0 ? db.query.stepResultsTable.findMany({
+      where: (sr, { inArray }) => inArray(sr.executionId, execIds),
+    }) : Promise.resolve([]),
+  ]);
 
-      return {
-        ...uc,
-        createdAt: uc.createdAt.toISOString(),
-        testCases: testCasesWithDetail,
-      };
-    })
-  );
+  const srIds = stepResults.map(sr => sr.id);
+  const stepResultAttachments = srIds.length > 0 ? await db.query.attachmentsTable.findMany({
+    where: (a, { and, eq, inArray }) => and(
+      eq(a.entityType, "step_result"),
+      inArray(a.entityId, srIds)
+    ),
+  }) : [];
 
-  return {
+  // Manual assembly
+  const result = {
     ...project,
     createdAt: project.createdAt.toISOString(),
     updatedAt: project.updatedAt.toISOString(),
-    useCases: useCasesWithDetail,
+    useCases: useCases.map(uc => {
+      const ucTestCases = testCases.filter(tc => tc.useCaseId === uc.id);
+      return {
+        ...uc,
+        createdAt: uc.createdAt.toISOString(),
+        testCases: ucTestCases.map(tc => {
+          const tcSteps = steps.filter(s => s.testCaseId === tc.id);
+          const tcExecs = executions.filter(e => e.testCaseId === tc.id);
+          return {
+            ...tc,
+            createdAt: tc.createdAt.toISOString(),
+            steps: tcSteps.map(s => ({
+              ...s,
+              createdAt: s.createdAt.toISOString(),
+              attachments: stepAttachments
+                .filter(a => a.entityId === s.id)
+                .map(a => ({ ...a, createdAt: a.createdAt.toISOString() }))
+            })),
+            executions: tcExecs.map(ex => {
+              const exResults = stepResults.filter(sr => sr.executionId === ex.id);
+              return {
+                ...ex,
+                executedAt: ex.executedAt.toISOString(),
+                stepResults: exResults.map(sr => ({
+                  ...sr,
+                  recordedAt: sr.recordedAt.toISOString(),
+                  attachments: stepResultAttachments
+                    .filter(a => a.entityId === sr.id)
+                    .map(a => ({ ...a, createdAt: a.createdAt.toISOString() }))
+                }))
+              };
+            })
+          };
+        })
+      };
+    })
   };
+
+  return result;
 }
 
 router.get("/projects", async (req, res) => {
