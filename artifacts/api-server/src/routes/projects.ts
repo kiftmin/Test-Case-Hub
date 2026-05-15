@@ -50,7 +50,7 @@ async function buildProjectDetail(projectId: number) {
   const [stepAttachments, stepResults] = await Promise.all([
     stepIds.length > 0 ? db.query.attachmentsTable.findMany({
       where: (a, { and, eq, inArray }) => and(
-        eq(a.entityType, "step"),
+        eq(a.entityType, "test_step"),
         inArray(a.entityId, stepIds)
       ),
     }) : Promise.resolve([] as any[]),
