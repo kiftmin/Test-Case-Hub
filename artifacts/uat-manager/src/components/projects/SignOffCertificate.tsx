@@ -14,7 +14,7 @@ export function SignOffCertificate({ project, signOffData, lastRun }: SignOffCer
   };
 
   return (
-    <div className="bg-white p-8 max-w-4xl mx-auto border shadow-sm print:shadow-none print:border-none print:p-0">
+    <div className="bg-white p-8 max-w-4xl mx-auto border shadow-sm print:shadow-none print:border-none print:p-0 print-only">
       <div className="flex justify-between items-start mb-8 print:mb-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 mb-1 uppercase tracking-tight">Project Sign-off Certificate</h1>

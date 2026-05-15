@@ -141,7 +141,7 @@ export default function ProjectDetail() {
                   <DialogHeader>
                     <DialogTitle>Project Sign-off Certificate</DialogTitle>
                   </DialogHeader>
-                  {lastRunReport && (
+                  {showCertificate && lastRunReport && (
                     <SignOffCertificate
                       project={project}
                       signOffData={signOffData}
