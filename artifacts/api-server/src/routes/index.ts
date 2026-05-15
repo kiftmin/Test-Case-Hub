@@ -12,9 +12,12 @@ import usersRouter from "./users";
 import assignmentsRouter from "./project-assignments";
 import authRouter from "./auth";
 import testRunsRouter from "./test-runs";
+import { authenticate } from "../middlewares/auth";
 
 
 const router: IRouter = Router();
+
+router.use(authenticate);
 
 router.get("/", (req, res) => {
   res.json({ status: "running", message: "UAT Test Case Management System API" });

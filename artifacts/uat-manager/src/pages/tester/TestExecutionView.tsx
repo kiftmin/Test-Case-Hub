@@ -371,6 +371,25 @@ export default function TestExecutionView() {
     return <div className="min-h-screen p-8 text-center text-destructive">Project not found or access denied.</div>;
   }
 
+  const isSignedOff = (project as any).isSignedOff === 1;
+
+  if (isSignedOff) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 text-center">
+        <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center text-green-600 mb-4">
+          <ClipboardCheck className="w-8 h-8" />
+        </div>
+        <h2 className="text-2xl font-bold text-foreground">Access Restricted</h2>
+        <p className="text-muted-foreground mt-2 max-w-md">
+          This project has been officially signed off. The test portal is now closed for this project.
+        </p>
+        <Link href="/tester/dashboard">
+          <Button variant="outline" className="mt-6">Return to Dashboard</Button>
+        </Link>
+      </div>
+    );
+  }
+
   // Filter use cases if a testRunId is provided
   let filteredUseCases = project.useCases;
   if (testRunId && testRun) {

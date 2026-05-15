@@ -47,6 +47,8 @@ export default function ProjectDetail() {
 
   const projectRole = assignments.find(a => a.userId === user?.id)?.role;
   const isOwnerOrAdmin = user?.role === "ADMIN" || projectRole === "OWNER";
+  const isAuthorOrAdmin = user?.role === "ADMIN" || projectRole === "AUTHOR";
+  const isSignedOff = (project as any)?.isSignedOff === 1;
 
   const signOffData = (project as any)?.signOffData ? JSON.parse((project as any).signOffData) : null;
   const lastCompletedRunId = signOffData?.lastTestRunId || testRuns.find(r => r.status === 'completed')?.id;
@@ -181,7 +183,7 @@ export default function ProjectDetail() {
             <Link href={`/projects/${id}/users`}>
               <Button variant="outline" size="sm">
                 <Users className="w-4 h-4 mr-2" />
-                Manage Users
+                {isSignedOff ? "View Users" : "Manage Users"}
               </Button>
             </Link>
             <Link href={`/projects/${id}/test-runs`}>
@@ -196,12 +198,14 @@ export default function ProjectDetail() {
                 Analytics
               </Button>
             </Link>
-            <Link href={`/projects/${id}/edit`}>
-              <Button variant="outline" size="sm">
-                <Edit2 className="w-4 h-4 mr-2" />
-                Edit Metadata
-              </Button>
-            </Link>
+            {!isSignedOff && isAuthorOrAdmin && (
+              <Link href={`/projects/${id}/edit`}>
+                <Button variant="outline" size="sm">
+                  <Edit2 className="w-4 h-4 mr-2" />
+                  Edit Metadata
+                </Button>
+              </Link>
+            )}
             <Link href={`/tester`} target="_blank">
               <Button size="sm">
                 Tester Portal
@@ -221,13 +225,14 @@ export default function ProjectDetail() {
               project={project} 
               selectedTestCaseId={selectedTestCaseId}
               onSelectTestCase={setSelectedTestCaseId}
+              readOnly={isSignedOff || !isAuthorOrAdmin}
             />
           </div>
         </Card>
         
         <Card className="flex-1 flex flex-col overflow-hidden border-border bg-card">
           {selectedTestCaseId ? (
-            <TestCaseEditor testCaseId={selectedTestCaseId} />
+            <TestCaseEditor testCaseId={selectedTestCaseId} readOnly={isSignedOff || !isAuthorOrAdmin} />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
               <LayoutList className="w-12 h-12 text-muted-foreground/50 mb-4" />

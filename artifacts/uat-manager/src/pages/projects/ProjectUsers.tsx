@@ -26,6 +26,7 @@ export default function ProjectUsers() {
   const id = parseInt(projectId || "0", 10);
   
   const { data: project, isLoading: isProjectLoading } = useGetProject(id);
+  const isSignedOff = (project as any)?.isSignedOff === 1;
   const { data: assignments, isLoading: isAssignmentsLoading, refetch: refetchAssignments } = useListProjectUsers(id);
   const { data: allUsers, isLoading: isUsersLoading } = useListUsers();
   
@@ -129,14 +130,16 @@ export default function ProjectUsers() {
                         )}
                         {assignment.role}
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => handleRemove(assignment.userId)}
-                      >
-                        <UserMinus className="w-4 h-4" />
-                      </Button>
+                      {!isSignedOff && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => handleRemove(assignment.userId)}
+                        >
+                          <UserMinus className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))
@@ -145,10 +148,11 @@ export default function ProjectUsers() {
           </CardContent>
         </Card>
 
-        <Card className="h-fit">
-          <CardHeader>
-            <CardTitle className="text-lg">Add User</CardTitle>
-          </CardHeader>
+        {!isSignedOff && (
+          <Card className="h-fit">
+            <CardHeader>
+              <CardTitle className="text-lg">Add User</CardTitle>
+            </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Select User</label>
@@ -185,16 +189,17 @@ export default function ProjectUsers() {
               </Select>
             </div>
 
-            <Button 
-              className="w-full" 
-              onClick={handleAssign}
-              disabled={!selectedUserId || assignMutation.isPending}
-            >
-              <UserPlus className="w-4 h-4 mr-2" />
-              Assign to Project
-            </Button>
-          </CardContent>
-        </Card>
+              <Button
+                className="w-full"
+                onClick={handleAssign}
+                disabled={!selectedUserId || assignMutation.isPending}
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                Assign to Project
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </AppLayout>
   );
