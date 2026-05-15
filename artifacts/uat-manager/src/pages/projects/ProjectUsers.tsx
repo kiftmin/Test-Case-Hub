@@ -122,6 +122,8 @@ export default function ProjectUsers() {
                       <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-muted text-xs font-medium">
                         {assignment.role === "AUTHOR" ? (
                           <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
+                        ) : assignment.role === "OWNER" ? (
+                          <ShieldCheck className="w-3.5 h-3.5 text-purple-500" />
                         ) : (
                           <Shield className="w-3.5 h-3.5 text-green-500" />
                         )}
@@ -178,6 +180,7 @@ export default function ProjectUsers() {
                 <SelectContent>
                   <SelectItem value="TESTER">TESTER</SelectItem>
                   <SelectItem value="AUTHOR">AUTHOR</SelectItem>
+                  <SelectItem value="OWNER">OWNER</SelectItem>
                 </SelectContent>
               </Select>
             </div>
