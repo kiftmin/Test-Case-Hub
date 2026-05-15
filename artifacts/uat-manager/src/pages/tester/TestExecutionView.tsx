@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { useParams, Link, useLocation } from "wouter";
+import { useParams, Link, useLocation, useSearch } from "wouter";
 import { 
   useGetProjectByCode, getGetProjectByCodeQueryKey,
   useListExecutions, getListExecutionsQueryKey,
-  useCreateExecution, useUpdateExecution, useUpdateStepResult
+  useCreateExecution, useUpdateExecution, useUpdateStepResult,
+  useSyncTestRunUseCaseStatus, useGetTestRun, getGetTestRunQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,7 @@ import { MobileShare } from "@/components/tester/MobileShare";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 // A component for executing a single test case
-function TestCaseExecutor({ testCase, projectCode, user, onComplete }: any) {
+function TestCaseExecutor({ testCase, projectCode, user, testRunId, onComplete }: any) {
   const queryClient = useQueryClient();
   const { data: executions, isLoading: isLoadingExecutions } = useListExecutions(testCase.id, {
     query: { enabled: !!testCase.id, queryKey: getListExecutionsQueryKey(testCase.id) }
@@ -38,7 +39,7 @@ function TestCaseExecutor({ testCase, projectCode, user, onComplete }: any) {
 
   // Initialize step results when an execution is active
   useEffect(() => {
-    if (activeExecution) {
+    if (activeExecution && activeExecution.id !== activeExecutionId) {
       setActiveExecutionId(activeExecution.id);
       const initialResults: any = {};
       activeExecution.stepResults?.forEach((sr: any) => {
@@ -51,23 +52,25 @@ function TestCaseExecutor({ testCase, projectCode, user, onComplete }: any) {
         };
       });
       setStepResults(initialResults);
-    } else {
+    } else if (!activeExecution) {
       setActiveExecutionId(null);
       setStepResults({});
     }
-  }, [activeExecution]);
+  }, [activeExecution?.id]);
 
   const handleStartExecution = async () => {
     const res = await createExecution.mutateAsync({
       testCaseId: testCase.id,
       data: {
         testerName: user.name,
-        status: "in_progress"
+        status: "in_progress",
+        testRunId: testRunId || undefined
       }
     });
     queryClient.invalidateQueries({ queryKey: getListExecutionsQueryKey(testCase.id) });
     setActiveExecutionId(res.id);
   };
+
 
   const handleUpdateStep = async (stepId: number, data: any) => {
     if (!activeExecutionId) return;
@@ -90,6 +93,8 @@ function TestCaseExecutor({ testCase, projectCode, user, onComplete }: any) {
     queryClient.invalidateQueries({ queryKey: getListExecutionsQueryKey(testCase.id) });
   };
 
+  const syncUseCaseStatus = useSyncTestRunUseCaseStatus();
+
   const handleCompleteExecution = async (isPass: boolean) => {
     if (!activeExecutionId) return;
 
@@ -100,6 +105,17 @@ function TestCaseExecutor({ testCase, projectCode, user, onComplete }: any) {
         status: isPass ? "completed" : "failed"
       }
     });
+
+    if (testRunId && testCase.useCaseId) {
+      try {
+        await syncUseCaseStatus.mutateAsync({
+          testRunId,
+          useCaseId: testCase.useCaseId
+        });
+      } catch (err) {
+        console.error("Failed to sync use case status", err);
+      }
+    }
 
     queryClient.invalidateQueries({ queryKey: getListExecutionsQueryKey(testCase.id) });
     queryClient.invalidateQueries({ queryKey: getGetProjectByCodeQueryKey(projectCode) });
@@ -314,6 +330,11 @@ function TestCaseExecutor({ testCase, projectCode, user, onComplete }: any) {
 export default function TestExecutionView() {
   const { projectCode } = useParams();
   const [, setLocation] = useLocation();
+  const searchString = useSearch();
+  const searchParams = new URLSearchParams(searchString);
+  const testRunIdParam = searchParams.get("testRunId");
+  const testRunId = testRunIdParam ? parseInt(testRunIdParam, 10) : undefined;
+  
   const code = projectCode?.toUpperCase() || "";
   const user = getAuthUser();
 
@@ -323,8 +344,12 @@ export default function TestExecutionView() {
     }
   }, [user, setLocation]);
 
-  const { data: project, isLoading } = useGetProjectByCode(code, {
+  const { data: project, isLoading: isLoadingProject } = useGetProjectByCode(code, {
     query: { enabled: !!code && !!user, queryKey: getGetProjectByCodeQueryKey(code) }
+  });
+
+  const { data: testRun, isLoading: isLoadingTestRun } = useGetTestRun(testRunId!, {
+    query: { enabled: !!testRunId, queryKey: getGetTestRunQueryKey(testRunId!) }
   });
 
   const [activeTestCaseId, setActiveTestCaseId] = useState<number | null>(null);
@@ -336,6 +361,8 @@ export default function TestExecutionView() {
     setLocation("/tester");
   };
 
+  const isLoading = isLoadingProject || (testRunId && isLoadingTestRun);
+
   if (isLoading) {
     return <div className="min-h-screen p-8 flex items-center justify-center animate-pulse">Loading Test Plan...</div>;
   }
@@ -344,10 +371,19 @@ export default function TestExecutionView() {
     return <div className="min-h-screen p-8 text-center text-destructive">Project not found or access denied.</div>;
   }
 
+  // Filter use cases if a testRunId is provided
+  let filteredUseCases = project.useCases;
+  if (testRunId && testRun) {
+    const assignedUseCaseIds = testRun.useCases
+      .filter((uc) => uc.assignedTesterUsername === user.username)
+      .map((uc) => uc.useCaseId);
+    filteredUseCases = project.useCases.filter((uc) => assignedUseCaseIds.includes(uc.id));
+  }
+
   // Find the active test case object
   let activeTestCase = null;
   if (activeTestCaseId) {
-    for (const uc of project.useCases) {
+    for (const uc of filteredUseCases) {
       const tc = uc.testCases.find((t: any) => t.id === activeTestCaseId);
       if (tc) {
         activeTestCase = tc;
@@ -415,6 +451,7 @@ export default function TestExecutionView() {
                 testCase={activeTestCase} 
                 projectCode={code} 
                 user={user}
+                testRunId={testRunId}
                 onComplete={() => setActiveTestCaseId(null)}
               />
             </div>
@@ -431,7 +468,7 @@ export default function TestExecutionView() {
           "order-1 lg:order-2 space-y-6 lg:sticky lg:top-24 max-h-[calc(100vh-8rem)] overflow-y-auto pr-2",
           activeTestCaseId !== null && "hidden lg:block" // Hide list on mobile when a case is active
         )}>
-          {project.useCases.map((useCase) => {
+          {filteredUseCases.map((useCase) => {
             const completedCount = useCase.testCases.filter(tc => tc.executions?.length > 0).length;
             const isFullyCompleted = completedCount === useCase.testCases.length && useCase.testCases.length > 0;
             

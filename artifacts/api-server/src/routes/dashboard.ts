@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, projectsTable, testCasesTable, executionsTable, useCasesTable, testStepsTable, stepResultsTable } from "@workspace/db";
-import { eq, desc, count, and, isNotNull } from "drizzle-orm";
+import { eq, desc, count, and, isNotNull, gte } from "drizzle-orm";
 
 const router = Router();
 
@@ -28,7 +28,7 @@ router.get("/dashboard/summary", async (req, res) => {
     const [recentProjects] = await db
       .select({ count: count() })
       .from(projectsTable)
-      .where((projects, { gte }) => gte(projects.createdAt, thirtyDaysAgo));
+      .where(gte(projectsTable.createdAt, thirtyDaysAgo));
 
     res.json({
       totalProjects: Number(projectCount[0]?.count ?? 0),

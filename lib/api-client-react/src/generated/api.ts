@@ -21,6 +21,7 @@ import type {
 
 import type {
   ActivityItem,
+  AddUseCaseToTestRunBody,
   Attachment,
   BulkCreateTestStepsBody,
   CreateAttachmentBody,
@@ -29,21 +30,30 @@ import type {
   CreateProjectBody,
   CreateStepResultBody,
   CreateTestCaseBody,
+  CreateTestRunBody,
   CreateTestStepBody,
   CreateUseCaseBody,
   CreateUserBody,
   DashboardSummary,
+  GetTestRunFullReport200,
   HealthStatus,
   LoginBody,
   LoginResponse,
   ProjectAssignment,
   ProjectStats,
+  ReRunBody,
   StepResult,
   TestCase,
   TestExecution,
   TestProject,
   TestProjectDetail,
+  TestRun,
+  TestRunAnalytics,
+  TestRunDetail,
   TestStep,
+  TesterTestRun,
+  UpdateTestRunBody,
+  UpdateTestRunUseCaseBody,
   UseCase,
   User
 } from './api.schemas';
@@ -2181,6 +2191,897 @@ export function useGetRecentActivity<TData = Awaited<ReturnType<typeof getRecent
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetRecentActivityQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getListTestRunsUrl = (projectId: number,) => {
+
+
+
+
+  return `/api/projects/${projectId}/test-runs`
+}
+
+/**
+ * @summary List all test runs for a project
+ */
+export const listTestRuns = async (projectId: number, options?: RequestInit): Promise<TestRun[]> => {
+
+  return customFetch<TestRun[]>(getListTestRunsUrl(projectId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListTestRunsQueryKey = (projectId: number,) => {
+    return [
+    `/api/projects/${projectId}/test-runs`
+    ] as const;
+    }
+
+
+export const getListTestRunsQueryOptions = <TData = Awaited<ReturnType<typeof listTestRuns>>, TError = ErrorType<unknown>>(projectId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTestRuns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListTestRunsQueryKey(projectId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTestRuns>>> = ({ signal }) => listTestRuns(projectId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(projectId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listTestRuns>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListTestRunsQueryResult = NonNullable<Awaited<ReturnType<typeof listTestRuns>>>
+export type ListTestRunsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all test runs for a project
+ */
+
+export function useListTestRuns<TData = Awaited<ReturnType<typeof listTestRuns>>, TError = ErrorType<unknown>>(
+ projectId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTestRuns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListTestRunsQueryOptions(projectId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateTestRunUrl = (projectId: number,) => {
+
+
+
+
+  return `/api/projects/${projectId}/test-runs`
+}
+
+/**
+ * @summary Create a new test run
+ */
+export const createTestRun = async (projectId: number,
+    createTestRunBody: CreateTestRunBody, options?: RequestInit): Promise<TestRunDetail> => {
+
+  return customFetch<TestRunDetail>(getCreateTestRunUrl(projectId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      createTestRunBody,)
+  }
+);}
+
+
+
+
+export const getCreateTestRunMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTestRun>>, TError,{projectId: number;data: BodyType<CreateTestRunBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTestRun>>, TError,{projectId: number;data: BodyType<CreateTestRunBody>}, TContext> => {
+
+const mutationKey = ['createTestRun'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTestRun>>, {projectId: number;data: BodyType<CreateTestRunBody>}> = (props) => {
+          const {projectId,data} = props ?? {};
+
+          return  createTestRun(projectId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTestRunMutationResult = NonNullable<Awaited<ReturnType<typeof createTestRun>>>
+    export type CreateTestRunMutationBody = BodyType<CreateTestRunBody>
+    export type CreateTestRunMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a new test run
+ */
+export const useCreateTestRun = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTestRun>>, TError,{projectId: number;data: BodyType<CreateTestRunBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createTestRun>>,
+        TError,
+        {projectId: number;data: BodyType<CreateTestRunBody>},
+        TContext
+      > => {
+      return useMutation(getCreateTestRunMutationOptions(options));
+    }
+
+export const getGetTestRunUrl = (testRunId: number,) => {
+
+
+
+
+  return `/api/test-runs/${testRunId}`
+}
+
+/**
+ * @summary Get test run details
+ */
+export const getTestRun = async (testRunId: number, options?: RequestInit): Promise<TestRunDetail> => {
+
+  return customFetch<TestRunDetail>(getGetTestRunUrl(testRunId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTestRunQueryKey = (testRunId: number,) => {
+    return [
+    `/api/test-runs/${testRunId}`
+    ] as const;
+    }
+
+
+export const getGetTestRunQueryOptions = <TData = Awaited<ReturnType<typeof getTestRun>>, TError = ErrorType<unknown>>(testRunId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTestRun>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTestRunQueryKey(testRunId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTestRun>>> = ({ signal }) => getTestRun(testRunId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(testRunId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTestRun>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTestRunQueryResult = NonNullable<Awaited<ReturnType<typeof getTestRun>>>
+export type GetTestRunQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get test run details
+ */
+
+export function useGetTestRun<TData = Awaited<ReturnType<typeof getTestRun>>, TError = ErrorType<unknown>>(
+ testRunId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTestRun>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTestRunQueryOptions(testRunId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateTestRunUrl = (testRunId: number,) => {
+
+
+
+
+  return `/api/test-runs/${testRunId}`
+}
+
+/**
+ * @summary Update a test run
+ */
+export const updateTestRun = async (testRunId: number,
+    updateTestRunBody: UpdateTestRunBody, options?: RequestInit): Promise<TestRunDetail> => {
+
+  return customFetch<TestRunDetail>(getUpdateTestRunUrl(testRunId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      updateTestRunBody,)
+  }
+);}
+
+
+
+
+export const getUpdateTestRunMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTestRun>>, TError,{testRunId: number;data: BodyType<UpdateTestRunBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTestRun>>, TError,{testRunId: number;data: BodyType<UpdateTestRunBody>}, TContext> => {
+
+const mutationKey = ['updateTestRun'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTestRun>>, {testRunId: number;data: BodyType<UpdateTestRunBody>}> = (props) => {
+          const {testRunId,data} = props ?? {};
+
+          return  updateTestRun(testRunId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateTestRunMutationResult = NonNullable<Awaited<ReturnType<typeof updateTestRun>>>
+    export type UpdateTestRunMutationBody = BodyType<UpdateTestRunBody>
+    export type UpdateTestRunMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a test run
+ */
+export const useUpdateTestRun = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTestRun>>, TError,{testRunId: number;data: BodyType<UpdateTestRunBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateTestRun>>,
+        TError,
+        {testRunId: number;data: BodyType<UpdateTestRunBody>},
+        TContext
+      > => {
+      return useMutation(getUpdateTestRunMutationOptions(options));
+    }
+
+export const getAddUseCaseToTestRunUrl = (testRunId: number,) => {
+
+
+
+
+  return `/api/test-runs/${testRunId}/use-cases`
+}
+
+/**
+ * @summary Add a use case to a test run
+ */
+export const addUseCaseToTestRun = async (testRunId: number,
+    addUseCaseToTestRunBody: AddUseCaseToTestRunBody, options?: RequestInit): Promise<TestRunDetail> => {
+
+  return customFetch<TestRunDetail>(getAddUseCaseToTestRunUrl(testRunId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      addUseCaseToTestRunBody,)
+  }
+);}
+
+
+
+
+export const getAddUseCaseToTestRunMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addUseCaseToTestRun>>, TError,{testRunId: number;data: BodyType<AddUseCaseToTestRunBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addUseCaseToTestRun>>, TError,{testRunId: number;data: BodyType<AddUseCaseToTestRunBody>}, TContext> => {
+
+const mutationKey = ['addUseCaseToTestRun'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addUseCaseToTestRun>>, {testRunId: number;data: BodyType<AddUseCaseToTestRunBody>}> = (props) => {
+          const {testRunId,data} = props ?? {};
+
+          return  addUseCaseToTestRun(testRunId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddUseCaseToTestRunMutationResult = NonNullable<Awaited<ReturnType<typeof addUseCaseToTestRun>>>
+    export type AddUseCaseToTestRunMutationBody = BodyType<AddUseCaseToTestRunBody>
+    export type AddUseCaseToTestRunMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Add a use case to a test run
+ */
+export const useAddUseCaseToTestRun = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addUseCaseToTestRun>>, TError,{testRunId: number;data: BodyType<AddUseCaseToTestRunBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addUseCaseToTestRun>>,
+        TError,
+        {testRunId: number;data: BodyType<AddUseCaseToTestRunBody>},
+        TContext
+      > => {
+      return useMutation(getAddUseCaseToTestRunMutationOptions(options));
+    }
+
+export const getUpdateTestRunUseCaseUrl = (testRunId: number,
+    testRunUseCaseId: number,) => {
+
+
+
+
+  return `/api/test-runs/${testRunId}/use-cases/${testRunUseCaseId}`
+}
+
+/**
+ * @summary Update a test run use case
+ */
+export const updateTestRunUseCase = async (testRunId: number,
+    testRunUseCaseId: number,
+    updateTestRunUseCaseBody: UpdateTestRunUseCaseBody, options?: RequestInit): Promise<TestRunDetail> => {
+
+  return customFetch<TestRunDetail>(getUpdateTestRunUseCaseUrl(testRunId,testRunUseCaseId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      updateTestRunUseCaseBody,)
+  }
+);}
+
+
+
+
+export const getUpdateTestRunUseCaseMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTestRunUseCase>>, TError,{testRunId: number;testRunUseCaseId: number;data: BodyType<UpdateTestRunUseCaseBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTestRunUseCase>>, TError,{testRunId: number;testRunUseCaseId: number;data: BodyType<UpdateTestRunUseCaseBody>}, TContext> => {
+
+const mutationKey = ['updateTestRunUseCase'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTestRunUseCase>>, {testRunId: number;testRunUseCaseId: number;data: BodyType<UpdateTestRunUseCaseBody>}> = (props) => {
+          const {testRunId,testRunUseCaseId,data} = props ?? {};
+
+          return  updateTestRunUseCase(testRunId,testRunUseCaseId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateTestRunUseCaseMutationResult = NonNullable<Awaited<ReturnType<typeof updateTestRunUseCase>>>
+    export type UpdateTestRunUseCaseMutationBody = BodyType<UpdateTestRunUseCaseBody>
+    export type UpdateTestRunUseCaseMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a test run use case
+ */
+export const useUpdateTestRunUseCase = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTestRunUseCase>>, TError,{testRunId: number;testRunUseCaseId: number;data: BodyType<UpdateTestRunUseCaseBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateTestRunUseCase>>,
+        TError,
+        {testRunId: number;testRunUseCaseId: number;data: BodyType<UpdateTestRunUseCaseBody>},
+        TContext
+      > => {
+      return useMutation(getUpdateTestRunUseCaseMutationOptions(options));
+    }
+
+export const getRemoveUseCaseFromTestRunUrl = (testRunId: number,
+    testRunUseCaseId: number,) => {
+
+
+
+
+  return `/api/test-runs/${testRunId}/use-cases/${testRunUseCaseId}`
+}
+
+/**
+ * @summary Remove a use case from a test run
+ */
+export const removeUseCaseFromTestRun = async (testRunId: number,
+    testRunUseCaseId: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getRemoveUseCaseFromTestRunUrl(testRunId,testRunUseCaseId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getRemoveUseCaseFromTestRunMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeUseCaseFromTestRun>>, TError,{testRunId: number;testRunUseCaseId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeUseCaseFromTestRun>>, TError,{testRunId: number;testRunUseCaseId: number}, TContext> => {
+
+const mutationKey = ['removeUseCaseFromTestRun'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeUseCaseFromTestRun>>, {testRunId: number;testRunUseCaseId: number}> = (props) => {
+          const {testRunId,testRunUseCaseId} = props ?? {};
+
+          return  removeUseCaseFromTestRun(testRunId,testRunUseCaseId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveUseCaseFromTestRunMutationResult = NonNullable<Awaited<ReturnType<typeof removeUseCaseFromTestRun>>>
+
+    export type RemoveUseCaseFromTestRunMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Remove a use case from a test run
+ */
+export const useRemoveUseCaseFromTestRun = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeUseCaseFromTestRun>>, TError,{testRunId: number;testRunUseCaseId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removeUseCaseFromTestRun>>,
+        TError,
+        {testRunId: number;testRunUseCaseId: number},
+        TContext
+      > => {
+      return useMutation(getRemoveUseCaseFromTestRunMutationOptions(options));
+    }
+
+export const getSyncTestRunUseCaseStatusUrl = (testRunId: number,
+    useCaseId: number,) => {
+
+
+
+
+  return `/api/test-runs/${testRunId}/use-cases/${useCaseId}/sync`
+}
+
+/**
+ * @summary Sync the status of a use case in a test run
+ */
+export const syncTestRunUseCaseStatus = async (testRunId: number,
+    useCaseId: number, options?: RequestInit): Promise<TestRunDetail> => {
+
+  return customFetch<TestRunDetail>(getSyncTestRunUseCaseStatusUrl(testRunId,useCaseId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getSyncTestRunUseCaseStatusMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncTestRunUseCaseStatus>>, TError,{testRunId: number;useCaseId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncTestRunUseCaseStatus>>, TError,{testRunId: number;useCaseId: number}, TContext> => {
+
+const mutationKey = ['syncTestRunUseCaseStatus'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncTestRunUseCaseStatus>>, {testRunId: number;useCaseId: number}> = (props) => {
+          const {testRunId,useCaseId} = props ?? {};
+
+          return  syncTestRunUseCaseStatus(testRunId,useCaseId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncTestRunUseCaseStatusMutationResult = NonNullable<Awaited<ReturnType<typeof syncTestRunUseCaseStatus>>>
+
+    export type SyncTestRunUseCaseStatusMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Sync the status of a use case in a test run
+ */
+export const useSyncTestRunUseCaseStatus = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncTestRunUseCaseStatus>>, TError,{testRunId: number;useCaseId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof syncTestRunUseCaseStatus>>,
+        TError,
+        {testRunId: number;useCaseId: number},
+        TContext
+      > => {
+      return useMutation(getSyncTestRunUseCaseStatusMutationOptions(options));
+    }
+
+export const getRerunTestRunUrl = (testRunId: number,) => {
+
+
+
+
+  return `/api/test-runs/${testRunId}/re-run`
+}
+
+/**
+ * @summary Create a re-run from a failed test run
+ */
+export const rerunTestRun = async (testRunId: number,
+    reRunBody: ReRunBody, options?: RequestInit): Promise<TestRunDetail> => {
+
+  return customFetch<TestRunDetail>(getRerunTestRunUrl(testRunId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      reRunBody,)
+  }
+);}
+
+
+
+
+export const getRerunTestRunMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rerunTestRun>>, TError,{testRunId: number;data: BodyType<ReRunBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rerunTestRun>>, TError,{testRunId: number;data: BodyType<ReRunBody>}, TContext> => {
+
+const mutationKey = ['rerunTestRun'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rerunTestRun>>, {testRunId: number;data: BodyType<ReRunBody>}> = (props) => {
+          const {testRunId,data} = props ?? {};
+
+          return  rerunTestRun(testRunId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RerunTestRunMutationResult = NonNullable<Awaited<ReturnType<typeof rerunTestRun>>>
+    export type RerunTestRunMutationBody = BodyType<ReRunBody>
+    export type RerunTestRunMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a re-run from a failed test run
+ */
+export const useRerunTestRun = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rerunTestRun>>, TError,{testRunId: number;data: BodyType<ReRunBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rerunTestRun>>,
+        TError,
+        {testRunId: number;data: BodyType<ReRunBody>},
+        TContext
+      > => {
+      return useMutation(getRerunTestRunMutationOptions(options));
+    }
+
+export const getGetTestRunFullReportUrl = (testRunId: number,) => {
+
+
+
+
+  return `/api/test-runs/${testRunId}/full-report`
+}
+
+/**
+ * @summary Get full report data for a test run
+ */
+export const getTestRunFullReport = async (testRunId: number, options?: RequestInit): Promise<GetTestRunFullReport200> => {
+
+  return customFetch<GetTestRunFullReport200>(getGetTestRunFullReportUrl(testRunId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTestRunFullReportQueryKey = (testRunId: number,) => {
+    return [
+    `/api/test-runs/${testRunId}/full-report`
+    ] as const;
+    }
+
+
+export const getGetTestRunFullReportQueryOptions = <TData = Awaited<ReturnType<typeof getTestRunFullReport>>, TError = ErrorType<unknown>>(testRunId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTestRunFullReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTestRunFullReportQueryKey(testRunId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTestRunFullReport>>> = ({ signal }) => getTestRunFullReport(testRunId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(testRunId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTestRunFullReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTestRunFullReportQueryResult = NonNullable<Awaited<ReturnType<typeof getTestRunFullReport>>>
+export type GetTestRunFullReportQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get full report data for a test run
+ */
+
+export function useGetTestRunFullReport<TData = Awaited<ReturnType<typeof getTestRunFullReport>>, TError = ErrorType<unknown>>(
+ testRunId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTestRunFullReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTestRunFullReportQueryOptions(testRunId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetTesterTestRunsUrl = (userId: number,) => {
+
+
+
+
+  return `/api/dashboard/tester/${userId}/test-runs`
+}
+
+/**
+ * @summary List test runs for a specific tester
+ */
+export const getTesterTestRuns = async (userId: number, options?: RequestInit): Promise<TesterTestRun[]> => {
+
+  return customFetch<TesterTestRun[]>(getGetTesterTestRunsUrl(userId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTesterTestRunsQueryKey = (userId: number,) => {
+    return [
+    `/api/dashboard/tester/${userId}/test-runs`
+    ] as const;
+    }
+
+
+export const getGetTesterTestRunsQueryOptions = <TData = Awaited<ReturnType<typeof getTesterTestRuns>>, TError = ErrorType<unknown>>(userId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTesterTestRuns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTesterTestRunsQueryKey(userId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTesterTestRuns>>> = ({ signal }) => getTesterTestRuns(userId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(userId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTesterTestRuns>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTesterTestRunsQueryResult = NonNullable<Awaited<ReturnType<typeof getTesterTestRuns>>>
+export type GetTesterTestRunsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List test runs for a specific tester
+ */
+
+export function useGetTesterTestRuns<TData = Awaited<ReturnType<typeof getTesterTestRuns>>, TError = ErrorType<unknown>>(
+ userId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTesterTestRuns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTesterTestRunsQueryOptions(userId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetTestRunAnalyticsUrl = (projectId: number,) => {
+
+
+
+
+  return `/api/projects/${projectId}/test-runs/analytics`
+}
+
+/**
+ * @summary Get analytics for completed test runs
+ */
+export const getTestRunAnalytics = async (projectId: number, options?: RequestInit): Promise<TestRunAnalytics[]> => {
+
+  return customFetch<TestRunAnalytics[]>(getGetTestRunAnalyticsUrl(projectId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTestRunAnalyticsQueryKey = (projectId: number,) => {
+    return [
+    `/api/projects/${projectId}/test-runs/analytics`
+    ] as const;
+    }
+
+
+export const getGetTestRunAnalyticsQueryOptions = <TData = Awaited<ReturnType<typeof getTestRunAnalytics>>, TError = ErrorType<unknown>>(projectId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTestRunAnalytics>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTestRunAnalyticsQueryKey(projectId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTestRunAnalytics>>> = ({ signal }) => getTestRunAnalytics(projectId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(projectId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTestRunAnalytics>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTestRunAnalyticsQueryResult = NonNullable<Awaited<ReturnType<typeof getTestRunAnalytics>>>
+export type GetTestRunAnalyticsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get analytics for completed test runs
+ */
+
+export function useGetTestRunAnalytics<TData = Awaited<ReturnType<typeof getTestRunAnalytics>>, TError = ErrorType<unknown>>(
+ projectId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTestRunAnalytics>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTestRunAnalyticsQueryOptions(projectId,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

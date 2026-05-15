@@ -6,8 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface CreateExecutionBody {
-  testerName: string;
-  status?: string;
-  testRunId?: number | null;
+export interface CreateTestRunBody {
+  name: string;
+  scheduledAt: Date;
+  useCaseIds?: number[];
 }

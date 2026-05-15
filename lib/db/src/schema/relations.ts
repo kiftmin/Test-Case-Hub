@@ -8,10 +8,12 @@ import { attachmentsTable } from "./attachments";
 import { projectAssignmentsTable } from "./project-assignments";
 import { stepResultsTable } from "./step-results";
 import { usersTable } from "./users";
+import { testRunsTable, testRunUseCasesTable } from "./test-runs";
 
 export const projectsRelations = relations(projectsTable, ({ many }) => ({
   useCases: many(useCasesTable),
   assignments: many(projectAssignmentsTable),
+  testRuns: many(testRunsTable),
 }));
 
 export const useCasesRelations = relations(useCasesTable, ({ one, many }) => ({
@@ -20,6 +22,7 @@ export const useCasesRelations = relations(useCasesTable, ({ one, many }) => ({
     references: [projectsTable.id],
   }),
   testCases: many(testCasesTable),
+  testRunUseCases: many(testRunUseCasesTable),
 }));
 
 export const testCasesRelations = relations(testCasesTable, ({ one, many }) => ({
@@ -43,6 +46,10 @@ export const executionsRelations = relations(executionsTable, ({ one, many }) =>
   testCase: one(testCasesTable, {
     fields: [executionsTable.testCaseId],
     references: [testCasesTable.id],
+  }),
+  testRun: one(testRunsTable, {
+    fields: [executionsTable.testRunId],
+    references: [testRunsTable.id],
   }),
   stepResults: many(stepResultsTable),
 }));
@@ -79,5 +86,33 @@ export const projectAssignmentsRelations = relations(projectAssignmentsTable, ({
 
 export const usersRelations = relations(usersTable, ({ many }) => ({
   assignments: many(projectAssignmentsTable),
+  testRunUseCases: many(testRunUseCasesTable),
 }));
 
+// -------------------------------------------------------
+// Test Runs Relations
+// -------------------------------------------------------
+
+export const testRunsRelations = relations(testRunsTable, ({ one, many }) => ({
+  project: one(projectsTable, {
+    fields: [testRunsTable.projectId],
+    references: [projectsTable.id],
+  }),
+  useCases: many(testRunUseCasesTable),
+  executions: many(executionsTable),
+}));
+
+export const testRunUseCasesRelations = relations(testRunUseCasesTable, ({ one }) => ({
+  testRun: one(testRunsTable, {
+    fields: [testRunUseCasesTable.testRunId],
+    references: [testRunsTable.id],
+  }),
+  useCase: one(useCasesTable, {
+    fields: [testRunUseCasesTable.useCaseId],
+    references: [useCasesTable.id],
+  }),
+  assignedTester: one(usersTable, {
+    fields: [testRunUseCasesTable.assignedTesterId],
+    references: [usersTable.id],
+  }),
+}));

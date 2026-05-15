@@ -14,7 +14,7 @@ import {
   DialogTitle, 
   DialogTrigger 
 } from "@/components/ui/dialog";
-import { Paperclip, Trash2, FileIcon, Loader2, Plus } from "lucide-react";
+import { Paperclip, Trash2, FileIcon, Loader2, Plus, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface StepAttachmentsProps {
@@ -28,21 +28,21 @@ export function StepAttachments({ stepId, testCaseId, attachments }: StepAttachm
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [success, setSuccess] = useState(false);
   
   const createAttachment = useCreateAttachment();
   const deleteAttachment = useDeleteAttachment();
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log("File selected:", e.target.files?.[0]);
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsUploading(true);
-    const formData = new FormData();
-    formData.append("file", file);
-
+    setSuccess(false);
     try {
-      // 1. Upload to server
+      const formData = new FormData();
+      formData.append("file", file);
+
       const response = await fetch("/api/upload", {
         method: "POST",
         body: formData,
@@ -51,10 +51,9 @@ export function StepAttachments({ stepId, testCaseId, attachments }: StepAttachm
       if (!response.ok) throw new Error("Upload failed");
       const uploadData = await response.json();
 
-      // 2. Create attachment record
       await createAttachment.mutateAsync({
         data: {
-          entityType: "step",
+          entityType: "test_step",
           entityId: stepId,
           field: "reference",
           fileName: uploadData.originalName,
@@ -63,6 +62,8 @@ export function StepAttachments({ stepId, testCaseId, attachments }: StepAttachm
         }
       });
 
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
       toast({ title: "Success", description: "File attached successfully" });
       await queryClient.invalidateQueries({ queryKey: getListTestStepsQueryKey(testCaseId) });
     } catch (err) {
@@ -70,7 +71,6 @@ export function StepAttachments({ stepId, testCaseId, attachments }: StepAttachm
       toast({ variant: "destructive", title: "Error", description: "Failed to upload file" });
     } finally {
       setIsUploading(false);
-      // Clear input
       e.target.value = "";
     }
   };
@@ -113,8 +113,22 @@ export function StepAttachments({ stepId, testCaseId, attachments }: StepAttachm
                 htmlFor={`file-upload-${stepId}`}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium cursor-pointer hover:bg-primary/90 transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                {isUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                Upload Reference
+                {success ? (
+                  <>
+                    <Check className="w-3 h-3" />
+                    Uploaded!
+                  </>
+                ) : isUploading ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-3 h-3" />
+                    Upload Reference
+                  </>
+                )}
               </label>
             </div>
           </div>
@@ -153,15 +167,5 @@ export function StepAttachments({ stepId, testCaseId, attachments }: StepAttachm
         </div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-// Minimal Input component since we don't want to import everything
-function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      className={`flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
-      {...props}
-    />
   );
 }

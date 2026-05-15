@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, executionsTable, attachmentsTable, stepResultsTable } from "@workspace/db";
+import { db, executionsTable, attachmentsTable, stepResultsTable, testRunsTable, testRunUseCasesTable, testCasesTable, usersTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 import { CreateExecutionBody, UpdateStepResultBody } from "@workspace/api-zod";
 
@@ -64,6 +64,61 @@ router.post("/test-cases/:testCaseId/executions", async (req, res) => {
 
     const body = CreateExecutionBody.parse(req.body);
 
+    // ── Schedule & Assignment Enforcement ──────────────────────────────────
+    if (body.testRunId) {
+      const run = await db.query.testRunsTable.findFirst({
+        where: eq(testRunsTable.id, body.testRunId),
+      });
+
+      if (!run) return res.status(404).json({ error: "Test run not found" });
+
+      // 1. Check schedule
+      if (run.scheduledAt > new Date()) {
+        return res.status(403).json({ 
+          error: "Test run is not yet available", 
+          scheduledAt: run.scheduledAt.toISOString() 
+        });
+      }
+
+      // 2. Check assignment
+      const testCase = await db.query.testCasesTable.findFirst({
+        where: eq(testCasesTable.id, testCaseId),
+      });
+
+      if (!testCase) return res.status(404).json({ error: "Test case not found" });
+
+      const assignment = await db.query.testRunUseCasesTable.findFirst({
+        where: and(
+          eq(testRunUseCasesTable.testRunId, body.testRunId),
+          eq(testRunUseCasesTable.useCaseId, testCase.useCaseId)
+        ),
+      });
+
+      if (!assignment) {
+        return res.status(403).json({ error: "This test case is not part of the specified test run" });
+      }
+
+      // Verify that the tester matches the assignment
+      if (assignment.assignedTesterId !== null) {
+        const assignedUser = await db.query.usersTable.findFirst({
+          where: eq(usersTable.id, assignment.assignedTesterId),
+        });
+
+        // We compare against testerName provided in the body (from UI)
+        if (assignedUser && assignedUser.name !== body.testerName) {
+          return res.status(403).json({ 
+            error: "You are not assigned to this use case",
+            assignedTo: assignedUser.name
+          });
+        }
+      } else {
+        // If unassigned, we might want to block or allow any tester to "pick it up".
+        // The requirement says "testers can only record results for use cases assigned to them".
+        return res.status(403).json({ error: "No tester has been assigned to this use case yet" });
+      }
+    }
+    // ───────────────────────────────────────────────────────────────────────
+
     const existing = await db.query.executionsTable.findMany({
       where: eq(executionsTable.testCaseId, testCaseId),
     });
@@ -73,6 +128,7 @@ router.post("/test-cases/:testCaseId/executions", async (req, res) => {
       .insert(executionsTable)
       .values({
         testCaseId,
+        testRunId: body.testRunId ?? null,
         iterationNumber,
         testerName: body.testerName,
         status: body.status || 'in_progress',
@@ -107,6 +163,32 @@ router.put("/executions/:executionId", async (req, res) => {
       .returning();
 
     if (!updated) return res.status(404).json({ error: "Execution not found" });
+
+    // Verify assignment if it's part of a test run
+    if (updated.testRunId) {
+      const testCase = await db.query.testCasesTable.findFirst({
+        where: eq(testCasesTable.id, updated.testCaseId),
+      });
+
+      if (testCase) {
+        const assignment = await db.query.testRunUseCasesTable.findFirst({
+          where: and(
+            eq(testRunUseCasesTable.testRunId, updated.testRunId),
+            eq(testRunUseCasesTable.useCaseId, testCase.useCaseId)
+          ),
+        });
+
+        if (assignment && assignment.assignedTesterId !== null) {
+          const assignedUser = await db.query.usersTable.findFirst({
+            where: eq(usersTable.id, assignment.assignedTesterId),
+          });
+
+          if (assignedUser && assignedUser.name !== body.testerName) {
+            return res.status(403).json({ error: "You are not authorized to update this execution" });
+          }
+        }
+      }
+    }
 
     const stepResults = await db.query.stepResultsTable.findMany({
       where: eq(stepResultsTable.executionId, executionId),

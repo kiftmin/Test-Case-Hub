@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Paperclip, X, Loader2, Image as ImageIcon } from "lucide-react";
+import { Paperclip, X, Loader2, Image as ImageIcon, Check } from "lucide-react";
 import { useCreateAttachment, useDeleteAttachment } from "@workspace/api-client-react";
 
 interface EvidenceUploadProps {
@@ -12,6 +12,7 @@ interface EvidenceUploadProps {
 
 export function EvidenceUpload({ entityId, entityType, attachments = [], onUpdate }: EvidenceUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
+  const [success, setSuccess] = useState(false);
   const createAttachment = useCreateAttachment();
   const deleteAttachment = useDeleteAttachment();
 
@@ -20,6 +21,7 @@ export function EvidenceUpload({ entityId, entityType, attachments = [], onUpdat
     if (!file) return;
 
     setIsUploading(true);
+    setSuccess(false);
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -41,12 +43,15 @@ export function EvidenceUpload({ entityId, entityType, attachments = [], onUpdat
             fileType: fileData.mimetype,
           }
         });
+        setSuccess(true);
+        setTimeout(() => setSuccess(false), 2000);
         if (onUpdate) onUpdate();
       }
     } catch (err) {
       console.error("Upload failed", err);
     } finally {
       setIsUploading(false);
+      e.target.value = "";
     }
   };
 
@@ -95,12 +100,22 @@ export function EvidenceUpload({ entityId, entityType, attachments = [], onUpdat
           asChild
         >
           <label htmlFor={`file-upload-${entityId}`} className="cursor-pointer">
-            {isUploading ? (
-              <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+            {success ? (
+              <>
+                <Check className="w-3.5 h-3.5 mr-2 text-green-600" />
+                Uploaded!
+              </>
+            ) : isUploading ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                Uploading...
+              </>
             ) : (
-              <Paperclip className="w-3.5 h-3.5 mr-2" />
+              <>
+                <Paperclip className="w-3.5 h-3.5 mr-2" />
+                Attach Evidence
+              </>
             )}
-            {isUploading ? "Uploading..." : "Attach Evidence"}
           </label>
         </Button>
       </div>

@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { LayoutDashboard, FolderKanban, PlaySquare, Settings, LogOut, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getAuthUser } from "@/lib/auth";
 
 export function Sidebar() {
   const [location] = useLocation();
@@ -11,6 +12,8 @@ export function Sidebar() {
     { name: "Users", href: "/users", icon: UserPlus },
     { name: "Tester Portal", href: "/tester", icon: PlaySquare },
   ];
+
+  const user = getAuthUser();
 
   return (
     <div className="flex h-screen w-64 flex-col bg-sidebar border-r border-sidebar-border">
@@ -55,13 +58,14 @@ export function Sidebar() {
       <div className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-sidebar-foreground/70 rounded-md">
           <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center text-sidebar-foreground uppercase text-xs">
-            AD
+            {user?.name?.substring(0, 2) || "U"}
           </div>
           <div className="flex-1 overflow-hidden">
-            <p className="truncate text-sidebar-foreground">Admin User</p>
+            <p className="truncate text-sidebar-foreground">{user?.name || "User"}</p>
+            <p className="truncate text-[10px] text-sidebar-foreground/50">{user?.role || "Tester"}</p>
           </div>
         </div>
       </div>
     </div>
   );
-}
+}

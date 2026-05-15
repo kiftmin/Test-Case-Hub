@@ -11,6 +11,7 @@ import uploadRouter from "./upload";
 import usersRouter from "./users";
 import assignmentsRouter from "./project-assignments";
 import authRouter from "./auth";
+import testRunsRouter from "./test-runs";
 
 
 const router: IRouter = Router();
@@ -31,6 +32,7 @@ router.use(uploadRouter);
 router.use(usersRouter);
 router.use(assignmentsRouter);
 router.use(authRouter);
+router.use(testRunsRouter);
 
 
 export default router;

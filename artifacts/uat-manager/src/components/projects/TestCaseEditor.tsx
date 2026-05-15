@@ -166,7 +166,7 @@ export function TestCaseEditor({ testCaseId }: TestCaseEditorProps) {
               </div>
             ) : (
               /* View mode */
-              <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 cursor-pointer" onDoubleClick={() => startEdit(step)}>
+              <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 cursor-pointer" onDoubleClick={() => startEdit({ ...step, testData: step.testData ?? null })}>
                 <div className="space-y-1">
                   <span className="text-xs font-semibold text-muted-foreground uppercase">Action</span>
                   <p className="text-sm">{step.instruction}</p>
@@ -209,7 +209,7 @@ export function TestCaseEditor({ testCaseId }: TestCaseEditorProps) {
                     variant="ghost" 
                     size="icon" 
                     className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground"
-                    onClick={() => startEdit(step)}
+                    onClick={() => startEdit({ ...step, testData: step.testData ?? null })}
                   >
                     <Edit2 className="w-4 h-4" />
                   </Button>

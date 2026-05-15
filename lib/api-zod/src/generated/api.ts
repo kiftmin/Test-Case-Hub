@@ -102,6 +102,7 @@ export const GetProjectResponse = zod.object({
   "executions": zod.array(zod.object({
   "id": zod.number(),
   "testCaseId": zod.number(),
+  "testRunId": zod.number().nullish(),
   "iterationNumber": zod.number(),
   "testerName": zod.string(),
   "status": zod.string(),
@@ -224,6 +225,7 @@ export const GetProjectByCodeResponse = zod.object({
   "executions": zod.array(zod.object({
   "id": zod.number(),
   "testCaseId": zod.number(),
+  "testRunId": zod.number().nullish(),
   "iterationNumber": zod.number(),
   "testerName": zod.string(),
   "status": zod.string(),
@@ -476,6 +478,7 @@ export const ListExecutionsParams = zod.object({
 export const ListExecutionsResponseItem = zod.object({
   "id": zod.number(),
   "testCaseId": zod.number(),
+  "testRunId": zod.number().nullish(),
   "iterationNumber": zod.number(),
   "testerName": zod.string(),
   "status": zod.string(),
@@ -512,7 +515,8 @@ export const CreateExecutionParams = zod.object({
 
 export const CreateExecutionBody = zod.object({
   "testerName": zod.string(),
-  "status": zod.string().optional()
+  "status": zod.string().optional(),
+  "testRunId": zod.number().nullish()
 })
 
 
@@ -525,12 +529,14 @@ export const UpdateExecutionParams = zod.object({
 
 export const UpdateExecutionBody = zod.object({
   "testerName": zod.string(),
-  "status": zod.string().optional()
+  "status": zod.string().optional(),
+  "testRunId": zod.number().nullish()
 })
 
 export const UpdateExecutionResponse = zod.object({
   "id": zod.number(),
   "testCaseId": zod.number(),
+  "testRunId": zod.number().nullish(),
   "iterationNumber": zod.number(),
   "testerName": zod.string(),
   "status": zod.string(),
@@ -663,6 +669,286 @@ export const GetRecentActivityResponseItem = zod.object({
   "executedAt": zod.string()
 })
 export const GetRecentActivityResponse = zod.array(GetRecentActivityResponseItem)
+
+
+/**
+ * @summary List all test runs for a project
+ */
+export const ListTestRunsParams = zod.object({
+  "projectId": zod.coerce.number()
+})
+
+export const ListTestRunsResponseItem = zod.object({
+  "id": zod.number(),
+  "projectId": zod.number(),
+  "name": zod.string(),
+  "status": zod.enum(['scheduled', 'in_progress', 'completed']),
+  "scheduledAt": zod.coerce.date(),
+  "passed": zod.boolean().nullish(),
+  "sourceTestRunId": zod.number().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListTestRunsResponse = zod.array(ListTestRunsResponseItem)
+
+
+/**
+ * @summary Create a new test run
+ */
+export const CreateTestRunParams = zod.object({
+  "projectId": zod.coerce.number()
+})
+
+export const CreateTestRunBody = zod.object({
+  "name": zod.string(),
+  "scheduledAt": zod.coerce.date(),
+  "useCaseIds": zod.array(zod.number()).optional()
+})
+
+
+/**
+ * @summary Get test run details
+ */
+export const GetTestRunParams = zod.object({
+  "testRunId": zod.coerce.number()
+})
+
+export const GetTestRunResponse = zod.object({
+  "id": zod.number(),
+  "projectId": zod.number(),
+  "name": zod.string(),
+  "status": zod.enum(['scheduled', 'in_progress', 'completed']),
+  "scheduledAt": zod.coerce.date(),
+  "passed": zod.boolean().nullish(),
+  "sourceTestRunId": zod.number().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}).and(zod.object({
+  "useCases": zod.array(zod.object({
+  "id": zod.number(),
+  "testRunId": zod.number(),
+  "useCaseId": zod.number(),
+  "useCaseCode": zod.string().nullish(),
+  "useCaseName": zod.string().nullish(),
+  "assignedTesterId": zod.number().nullish(),
+  "assignedTesterName": zod.string().nullish(),
+  "assignedTesterUsername": zod.string().nullish(),
+  "freePass": zod.boolean(),
+  "status": zod.enum(['pending', 'in_progress', 'passed', 'failed']),
+  "createdAt": zod.coerce.date()
+}))
+}))
+
+
+/**
+ * @summary Update a test run
+ */
+export const UpdateTestRunParams = zod.object({
+  "testRunId": zod.coerce.number()
+})
+
+export const UpdateTestRunBody = zod.object({
+  "name": zod.string().optional(),
+  "scheduledAt": zod.coerce.date().optional(),
+  "status": zod.enum(['scheduled', 'in_progress', 'completed']).optional()
+})
+
+export const UpdateTestRunResponse = zod.object({
+  "id": zod.number(),
+  "projectId": zod.number(),
+  "name": zod.string(),
+  "status": zod.enum(['scheduled', 'in_progress', 'completed']),
+  "scheduledAt": zod.coerce.date(),
+  "passed": zod.boolean().nullish(),
+  "sourceTestRunId": zod.number().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}).and(zod.object({
+  "useCases": zod.array(zod.object({
+  "id": zod.number(),
+  "testRunId": zod.number(),
+  "useCaseId": zod.number(),
+  "useCaseCode": zod.string().nullish(),
+  "useCaseName": zod.string().nullish(),
+  "assignedTesterId": zod.number().nullish(),
+  "assignedTesterName": zod.string().nullish(),
+  "assignedTesterUsername": zod.string().nullish(),
+  "freePass": zod.boolean(),
+  "status": zod.enum(['pending', 'in_progress', 'passed', 'failed']),
+  "createdAt": zod.coerce.date()
+}))
+}))
+
+
+/**
+ * @summary Add a use case to a test run
+ */
+export const AddUseCaseToTestRunParams = zod.object({
+  "testRunId": zod.coerce.number()
+})
+
+export const AddUseCaseToTestRunBody = zod.object({
+  "useCaseId": zod.number()
+})
+
+
+/**
+ * @summary Update a test run use case
+ */
+export const UpdateTestRunUseCaseParams = zod.object({
+  "testRunId": zod.coerce.number(),
+  "testRunUseCaseId": zod.coerce.number()
+})
+
+export const UpdateTestRunUseCaseBody = zod.object({
+  "assignedTesterId": zod.number().nullish(),
+  "freePass": zod.boolean().optional(),
+  "status": zod.enum(['pending', 'in_progress', 'passed', 'failed']).optional()
+})
+
+export const UpdateTestRunUseCaseResponse = zod.object({
+  "id": zod.number(),
+  "projectId": zod.number(),
+  "name": zod.string(),
+  "status": zod.enum(['scheduled', 'in_progress', 'completed']),
+  "scheduledAt": zod.coerce.date(),
+  "passed": zod.boolean().nullish(),
+  "sourceTestRunId": zod.number().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}).and(zod.object({
+  "useCases": zod.array(zod.object({
+  "id": zod.number(),
+  "testRunId": zod.number(),
+  "useCaseId": zod.number(),
+  "useCaseCode": zod.string().nullish(),
+  "useCaseName": zod.string().nullish(),
+  "assignedTesterId": zod.number().nullish(),
+  "assignedTesterName": zod.string().nullish(),
+  "assignedTesterUsername": zod.string().nullish(),
+  "freePass": zod.boolean(),
+  "status": zod.enum(['pending', 'in_progress', 'passed', 'failed']),
+  "createdAt": zod.coerce.date()
+}))
+}))
+
+
+/**
+ * @summary Remove a use case from a test run
+ */
+export const RemoveUseCaseFromTestRunParams = zod.object({
+  "testRunId": zod.coerce.number(),
+  "testRunUseCaseId": zod.coerce.number()
+})
+
+
+/**
+ * @summary Sync the status of a use case in a test run
+ */
+export const SyncTestRunUseCaseStatusParams = zod.object({
+  "testRunId": zod.coerce.number(),
+  "useCaseId": zod.coerce.number()
+})
+
+export const SyncTestRunUseCaseStatusResponse = zod.object({
+  "id": zod.number(),
+  "projectId": zod.number(),
+  "name": zod.string(),
+  "status": zod.enum(['scheduled', 'in_progress', 'completed']),
+  "scheduledAt": zod.coerce.date(),
+  "passed": zod.boolean().nullish(),
+  "sourceTestRunId": zod.number().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}).and(zod.object({
+  "useCases": zod.array(zod.object({
+  "id": zod.number(),
+  "testRunId": zod.number(),
+  "useCaseId": zod.number(),
+  "useCaseCode": zod.string().nullish(),
+  "useCaseName": zod.string().nullish(),
+  "assignedTesterId": zod.number().nullish(),
+  "assignedTesterName": zod.string().nullish(),
+  "assignedTesterUsername": zod.string().nullish(),
+  "freePass": zod.boolean(),
+  "status": zod.enum(['pending', 'in_progress', 'passed', 'failed']),
+  "createdAt": zod.coerce.date()
+}))
+}))
+
+
+/**
+ * @summary Create a re-run from a failed test run
+ */
+export const RerunTestRunParams = zod.object({
+  "testRunId": zod.coerce.number()
+})
+
+export const rerunTestRunBodyFailedOnlyDefault = false;
+
+export const RerunTestRunBody = zod.object({
+  "name": zod.string(),
+  "scheduledAt": zod.coerce.date(),
+  "failedOnly": zod.boolean().default(rerunTestRunBodyFailedOnlyDefault)
+})
+
+
+/**
+ * @summary Get full report data for a test run
+ */
+export const GetTestRunFullReportParams = zod.object({
+  "testRunId": zod.coerce.number()
+})
+
+export const GetTestRunFullReportResponse = zod.record(zod.string(), zod.unknown())
+
+
+/**
+ * @summary List test runs for a specific tester
+ */
+export const GetTesterTestRunsParams = zod.object({
+  "userId": zod.coerce.number()
+})
+
+export const GetTesterTestRunsResponseItem = zod.object({
+  "id": zod.number(),
+  "projectId": zod.number(),
+  "name": zod.string(),
+  "status": zod.enum(['scheduled', 'in_progress', 'completed']),
+  "scheduledAt": zod.coerce.date(),
+  "passed": zod.boolean().nullish(),
+  "sourceTestRunId": zod.number().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}).and(zod.object({
+  "projectCode": zod.string(),
+  "msUntilStart": zod.number(),
+  "isAvailable": zod.boolean(),
+  "myUseCaseCount": zod.number(),
+  "myPendingCount": zod.number()
+}))
+export const GetTesterTestRunsResponse = zod.array(GetTesterTestRunsResponseItem)
+
+
+/**
+ * @summary Get analytics for completed test runs
+ */
+export const GetTestRunAnalyticsParams = zod.object({
+  "projectId": zod.coerce.number()
+})
+
+export const GetTestRunAnalyticsResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "scheduledAt": zod.coerce.date(),
+  "passed": zod.boolean().nullish(),
+  "totalUseCases": zod.number(),
+  "passedUseCases": zod.number(),
+  "failedUseCases": zod.number(),
+  "freePassCount": zod.number(),
+  "sourceTestRunId": zod.number().nullish()
+})
+export const GetTestRunAnalyticsResponse = zod.array(GetTestRunAnalyticsResponseItem)
 
 
 /**

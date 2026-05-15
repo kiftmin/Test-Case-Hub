@@ -37,11 +37,11 @@ async function buildProjectDetail(projectId: number) {
     tcIds.length > 0 ? db.query.testStepsTable.findMany({
       where: (ts, { inArray }) => inArray(ts.testCaseId, tcIds),
       orderBy: testStepsTable.stepNumber,
-    }) : Promise.resolve([]),
+    }) : Promise.resolve([] as any[]),
     tcIds.length > 0 ? db.query.executionsTable.findMany({
       where: (e, { inArray }) => inArray(e.testCaseId, tcIds),
       orderBy: desc(executionsTable.iterationNumber),
-    }) : Promise.resolve([]),
+    }) : Promise.resolve([] as any[]),
   ]);
 
   const stepIds = steps.map(s => s.id);
@@ -53,10 +53,10 @@ async function buildProjectDetail(projectId: number) {
         eq(a.entityType, "step"),
         inArray(a.entityId, stepIds)
       ),
-    }) : Promise.resolve([]),
+    }) : Promise.resolve([] as any[]),
     execIds.length > 0 ? db.query.stepResultsTable.findMany({
       where: (sr, { inArray }) => inArray(sr.executionId, execIds),
-    }) : Promise.resolve([]),
+    }) : Promise.resolve([] as any[]),
   ]);
 
   const srIds = stepResults.map(sr => sr.id);
@@ -65,7 +65,7 @@ async function buildProjectDetail(projectId: number) {
       eq(a.entityType, "step_result"),
       inArray(a.entityId, srIds)
     ),
-  }) : [];
+  }) : [] as any[];
 
   // Manual assembly
   const result = {

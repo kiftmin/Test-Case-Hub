@@ -1,4 +1,5 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
+// Reload trigger
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,6 +15,8 @@ import TesterLogin from "@/pages/tester/TesterLogin";
 import TesterDashboard from "@/pages/tester/TesterDashboard";
 import TestExecutionView from "@/pages/tester/TestExecutionView";
 import ProjectUsers from "@/pages/projects/ProjectUsers";
+import TestRunList from "@/pages/projects/TestRunList";
+import TestRunDetail from "@/pages/projects/TestRunDetail";
 import UserManagement from "@/pages/Users";
 
 const queryClient = new QueryClient();
@@ -27,6 +30,8 @@ function Router() {
       <Route path="/projects/:projectId/edit" component={ProjectEdit} />
       <Route path="/projects/:projectId/stats" component={ProjectStats} />
       <Route path="/projects/:projectId/users" component={ProjectUsers} />
+      <Route path="/projects/:projectId/test-runs" component={TestRunList} />
+      <Route path="/projects/:projectId/test-runs/:testRunId" component={TestRunDetail} />
       <Route path="/users" component={UserManagement} />
       <Route path="/projects/:projectId" component={ProjectDetail} />
       <Route path="/tester" component={TesterLogin} />

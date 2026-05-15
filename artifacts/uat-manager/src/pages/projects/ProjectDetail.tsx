@@ -4,7 +4,7 @@ import { useGetProject, getGetProjectQueryKey } from "@workspace/api-client-reac
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Edit2, Plus, LayoutList, Users, Download, FileJson, FileText } from "lucide-react";
+import { ChevronLeft, Edit2, Plus, LayoutList, Users, Download, FileJson, FileText, CalendarClock } from "lucide-react";
 import { exportProjectToPDF, exportProjectToExcel } from "@/lib/export-utils";
 import { 
   DropdownMenu, 
@@ -85,6 +85,12 @@ export default function ProjectDetail() {
               <Button variant="outline" size="sm">
                 <Users className="w-4 h-4 mr-2" />
                 Manage Users
+              </Button>
+            </Link>
+            <Link href={`/projects/${id}/test-runs`}>
+              <Button variant="outline" size="sm">
+                <CalendarClock className="w-4 h-4 mr-2" />
+                Test Runs
               </Button>
             </Link>
             <Link href={`/projects/${id}/stats`}>

@@ -24,6 +24,8 @@ tags:
     description: Attachment operations
   - name: dashboard
     description: Dashboard and reporting operations
+  - name: test-runs
+    description: Test run operations
 
 paths:
   /healthz:
@@ -616,6 +618,282 @@ paths:
                 items:
                   $ref: "#/components/schemas/ActivityItem"
 
+  # ── Test Runs ─────────────────────────────────────────────────────────────
+  /projects/{projectId}/test-runs:
+    get:
+      operationId: listTestRuns
+      tags: [test-runs]
+      summary: List all test runs for a project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of test runs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TestRun"
+    post:
+      operationId: createTestRun
+      tags: [test-runs]
+      summary: Create a new test run
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTestRunBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestRunDetail"
+
+
+  /test-runs/{testRunId}:
+    get:
+      operationId: getTestRun
+      tags: [test-runs]
+      summary: Get test run details
+      parameters:
+        - name: testRunId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Test run detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestRunDetail"
+    patch:
+      operationId: updateTestRun
+      tags: [test-runs]
+      summary: Update a test run
+      parameters:
+        - name: testRunId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTestRunBody"
+      responses:
+        "200":
+          description: Updated test run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestRunDetail"
+
+  /test-runs/{testRunId}/use-cases:
+    post:
+      operationId: addUseCaseToTestRun
+      tags: [test-runs]
+      summary: Add a use case to a test run
+      parameters:
+        - name: testRunId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                useCaseId:
+                  type: integer
+              required: [useCaseId]
+      responses:
+        "201":
+          description: Added use case
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestRunDetail"
+
+  /test-runs/{testRunId}/use-cases/{testRunUseCaseId}:
+    patch:
+      operationId: updateTestRunUseCase
+      tags: [test-runs]
+      summary: Update a test run use case
+      parameters:
+        - name: testRunId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: testRunUseCaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTestRunUseCaseBody"
+      responses:
+        "200":
+          description: Updated use case
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestRunDetail"
+    delete:
+      operationId: removeUseCaseFromTestRun
+      tags: [test-runs]
+      summary: Remove a use case from a test run
+      parameters:
+        - name: testRunId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: testRunUseCaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /test-runs/{testRunId}/use-cases/{useCaseId}/sync:
+    post:
+      operationId: syncTestRunUseCaseStatus
+      tags: [test-runs]
+      summary: Sync the status of a use case in a test run
+      parameters:
+        - name: testRunId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: useCaseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated test run detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestRunDetail"
+
+  /test-runs/{testRunId}/re-run:
+    post:
+      operationId: rerunTestRun
+      tags: [test-runs]
+      summary: Create a re-run from a failed test run
+      parameters:
+        - name: testRunId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReRunBody"
+      responses:
+        "201":
+          description: Created re-run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestRunDetail"
+
+  /test-runs/{testRunId}/full-report:
+    get:
+      operationId: getTestRunFullReport
+      tags: [test-runs]
+      summary: Get full report data for a test run
+      parameters:
+        - name: testRunId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Detailed test run data
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /dashboard/tester/{userId}/test-runs:
+    get:
+      operationId: getTesterTestRuns
+      tags: [test-runs]
+      summary: List test runs for a specific tester
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of tester test runs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TesterTestRun"
+
+  /projects/{projectId}/test-runs/analytics:
+    get:
+      operationId: getTestRunAnalytics
+      tags: [test-runs]
+      summary: Get analytics for completed test runs
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of test run analytics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TestRunAnalytics"
+
   # ── Authentication ────────────────────────────────────────────────────────
   /auth/login:
     post:
@@ -931,6 +1209,9 @@ components:
           type: integer
         testCaseId:
           type: integer
+        testRunId:
+          type: integer
+          nullable: true
         iterationNumber:
           type: integer
         testerName:
@@ -952,6 +1233,9 @@ components:
           type: string
         status:
           type: string
+        testRunId:
+          type: integer
+          nullable: true
       required: [testerName]
 
     StepResult:
@@ -1155,6 +1439,7 @@ components:
           $ref: "#/components/schemas/User"
       required: [id, projectId, userId, role, assignedAt]
 
+
     CreateProjectAssignmentBody:
       type: object
       properties:
@@ -1181,3 +1466,171 @@ components:
         user:
           $ref: "#/components/schemas/User"
       required: [token, user]
+    
+    TestRun:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        name:
+          type: string
+        status:
+          type: string
+          enum: [scheduled, in_progress, completed]
+        scheduledAt:
+          type: string
+          format: date-time
+        passed:
+          type: boolean
+          nullable: true
+        sourceTestRunId:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, projectId, name, status, scheduledAt, createdAt, updatedAt]
+
+    TestRunDetail:
+      allOf:
+        - $ref: "#/components/schemas/TestRun"
+        - type: object
+          properties:
+            useCases:
+              type: array
+              items:
+                $ref: "#/components/schemas/TestRunUseCase"
+          required: [useCases]
+
+    TestRunUseCase:
+      type: object
+      properties:
+        id:
+          type: integer
+        testRunId:
+          type: integer
+        useCaseId:
+          type: integer
+        useCaseCode:
+          type: string
+          nullable: true
+        useCaseName:
+          type: string
+          nullable: true
+        assignedTesterId:
+          type: integer
+          nullable: true
+        assignedTesterName:
+          type: string
+          nullable: true
+        assignedTesterUsername:
+          type: string
+          nullable: true
+        freePass:
+          type: boolean
+        status:
+          type: string
+          enum: [pending, in_progress, passed, failed]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, testRunId, useCaseId, freePass, status, createdAt]
+
+    CreateTestRunBody:
+      type: object
+      properties:
+        name:
+          type: string
+        scheduledAt:
+          type: string
+          format: date-time
+        useCaseIds:
+          type: array
+          items:
+            type: integer
+      required: [name, scheduledAt]
+
+    UpdateTestRunBody:
+      type: object
+      properties:
+        name:
+          type: string
+        scheduledAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [scheduled, in_progress, completed]
+
+    UpdateTestRunUseCaseBody:
+      type: object
+      properties:
+        assignedTesterId:
+          type: integer
+          nullable: true
+        freePass:
+          type: boolean
+        status:
+          type: string
+          enum: [pending, in_progress, passed, failed]
+
+    ReRunBody:
+      type: object
+      properties:
+        name:
+          type: string
+        scheduledAt:
+          type: string
+          format: date-time
+        failedOnly:
+          type: boolean
+          default: false
+      required: [name, scheduledAt]
+
+    TesterTestRun:
+      allOf:
+        - $ref: "#/components/schemas/TestRun"
+        - type: object
+          properties:
+            projectCode:
+              type: string
+            msUntilStart:
+              type: integer
+            isAvailable:
+              type: boolean
+            myUseCaseCount:
+              type: integer
+            myPendingCount:
+              type: integer
+          required: [projectCode, msUntilStart, isAvailable, myUseCaseCount, myPendingCount]
+
+    TestRunAnalytics:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        scheduledAt:
+          type: string
+          format: date-time
+        passed:
+          type: boolean
+          nullable: true
+        totalUseCases:
+          type: integer
+        passedUseCases:
+          type: integer
+        failedUseCases:
+          type: integer
+        freePassCount:
+          type: integer
+        sourceTestRunId:
+          type: integer
+          nullable: true
+      required: [id, name, scheduledAt, totalUseCases, passedUseCases, failedUseCases, freePassCount]

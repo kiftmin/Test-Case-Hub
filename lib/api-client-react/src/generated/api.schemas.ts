@@ -74,6 +74,7 @@ export interface StepResult {
 export interface TestExecution {
   id: number;
   testCaseId: number;
+  testRunId?: number | null;
   iterationNumber: number;
   testerName: string;
   status: string;
@@ -119,6 +120,7 @@ export interface CreateTestStepBody {
 export interface CreateExecutionBody {
   testerName: string;
   status?: string;
+  testRunId?: number | null;
 }
 
 export interface CreateStepResultBody {
@@ -214,7 +216,125 @@ export interface LoginResponse {
   user: User;
 }
 
+export type TestRunStatus = typeof TestRunStatus[keyof typeof TestRunStatus];
+
+
+export const TestRunStatus = {
+  scheduled: 'scheduled',
+  in_progress: 'in_progress',
+  completed: 'completed',
+} as const;
+
+export interface TestRun {
+  id: number;
+  projectId: number;
+  name: string;
+  status: TestRunStatus;
+  scheduledAt: string;
+  passed?: boolean | null;
+  sourceTestRunId?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TestRunUseCaseStatus = typeof TestRunUseCaseStatus[keyof typeof TestRunUseCaseStatus];
+
+
+export const TestRunUseCaseStatus = {
+  pending: 'pending',
+  in_progress: 'in_progress',
+  passed: 'passed',
+  failed: 'failed',
+} as const;
+
+export interface TestRunUseCase {
+  id: number;
+  testRunId: number;
+  useCaseId: number;
+  useCaseCode?: string | null;
+  useCaseName?: string | null;
+  assignedTesterId?: number | null;
+  assignedTesterName?: string | null;
+  assignedTesterUsername?: string | null;
+  freePass: boolean;
+  status: TestRunUseCaseStatus;
+  createdAt: string;
+}
+
+export type TestRunDetail = TestRun & {
+  useCases: TestRunUseCase[];
+};
+
+export interface CreateTestRunBody {
+  name: string;
+  scheduledAt: string;
+  useCaseIds?: number[];
+}
+
+export type UpdateTestRunBodyStatus = typeof UpdateTestRunBodyStatus[keyof typeof UpdateTestRunBodyStatus];
+
+
+export const UpdateTestRunBodyStatus = {
+  scheduled: 'scheduled',
+  in_progress: 'in_progress',
+  completed: 'completed',
+} as const;
+
+export interface UpdateTestRunBody {
+  name?: string;
+  scheduledAt?: string;
+  status?: UpdateTestRunBodyStatus;
+}
+
+export type UpdateTestRunUseCaseBodyStatus = typeof UpdateTestRunUseCaseBodyStatus[keyof typeof UpdateTestRunUseCaseBodyStatus];
+
+
+export const UpdateTestRunUseCaseBodyStatus = {
+  pending: 'pending',
+  in_progress: 'in_progress',
+  passed: 'passed',
+  failed: 'failed',
+} as const;
+
+export interface UpdateTestRunUseCaseBody {
+  assignedTesterId?: number | null;
+  freePass?: boolean;
+  status?: UpdateTestRunUseCaseBodyStatus;
+}
+
+export interface ReRunBody {
+  name: string;
+  scheduledAt: string;
+  failedOnly?: boolean;
+}
+
+export type TesterTestRun = TestRun & {
+  projectCode: string;
+  msUntilStart: number;
+  isAvailable: boolean;
+  myUseCaseCount: number;
+  myPendingCount: number;
+};
+
+export interface TestRunAnalytics {
+  id: number;
+  name: string;
+  scheduledAt: string;
+  passed?: boolean | null;
+  totalUseCases: number;
+  passedUseCases: number;
+  failedUseCases: number;
+  freePassCount: number;
+  sourceTestRunId?: number | null;
+}
+
 export type BulkCreateTestStepsBody = {
   steps: CreateTestStepBody[];
 };
+
+export type AddUseCaseToTestRunBody = {
+  useCaseId: number;
+};
+
+export type GetTestRunFullReport200 = { [key: string]: unknown };
 

@@ -10,6 +10,7 @@ import type { StepResult } from './stepResult';
 export interface TestExecution {
   id: number;
   testCaseId: number;
+  testRunId?: number | null;
   iterationNumber: number;
   testerName: string;
   status: string;

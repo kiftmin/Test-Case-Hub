@@ -1,19 +1,8 @@
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
-} from "@/components/ui/card"; // Wait, Dialog is usually in ui/dialog
 import { Button } from "@/components/ui/button";
 import { Smartphone, Share2, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
-
-// Since I don't have a Dialog component ready, I'll use a Popover or a simple modal logic
-// Actually, I'll check if Dialog exists.
 
 export function MobileShare() {
   const [copied, setCopied] = useState(false);
