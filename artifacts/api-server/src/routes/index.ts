@@ -17,13 +17,17 @@ import { authenticate } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-router.use(authenticate);
+// Public routes
+router.use(authRouter);
+router.use(healthRouter);
 
 router.get("/", (req, res) => {
   res.json({ status: "running", message: "UAT Test Case Management System API" });
 });
 
-router.use(healthRouter);
+// Authenticated routes
+router.use(authenticate);
+
 router.use(projectsRouter);
 router.use(useCasesRouter);
 router.use(testCasesRouter);
@@ -34,7 +38,6 @@ router.use(dashboardRouter);
 router.use(uploadRouter);
 router.use(usersRouter);
 router.use(assignmentsRouter);
-router.use(authRouter);
 router.use(testRunsRouter);
 
 
