@@ -3,11 +3,10 @@ import { db, usersTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { CreateUserBody } from "@workspace/api-zod";
 import bcrypt from "bcryptjs";
-import { authenticate, authorize } from "../middlewares/auth";
 
 const router = Router();
 
-router.get("/users", authenticate, authorize(['ADMIN']), async (req, res) => {
+router.get("/users", async (req, res) => {
   try {
     const users = await db.query.usersTable.findMany({
       orderBy: desc(usersTable.createdAt),
@@ -29,7 +28,7 @@ router.get("/users", authenticate, authorize(['ADMIN']), async (req, res) => {
   }
 });
 
-router.post("/users", authenticate, authorize(['ADMIN']), async (req, res) => {
+router.post("/users", async (req, res) => {
   try {
     const body = CreateUserBody.parse(req.body);
     
