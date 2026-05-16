@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useParams } from "wouter";
+import { getAuthUser } from "@/lib/auth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -163,6 +164,7 @@ function CreateTestRunDialog({
 
 export default function TestRunList() {
   const { projectId } = useParams();
+  const user = getAuthUser();
   const id = parseInt(projectId || "0", 10);
   const [showCreate, setShowCreate] = useState(false);
 
@@ -236,7 +238,7 @@ export default function TestRunList() {
         title="Test Runs"
         description="Schedule and manage test runs for this project."
         actions={
-          !isSignedOff && (
+          user?.role !== 'TESTER' && (
             <Button size="sm" onClick={() => setShowCreate(true)}>
               <Plus className="w-4 h-4 mr-2" /> New Test Run
             </Button>
@@ -257,7 +259,7 @@ export default function TestRunList() {
           <p className="text-muted-foreground mt-1 text-sm">
             Create your first test run to get started.
           </p>
-          {!isSignedOff && (
+          {user?.role !== 'TESTER' && (
             <Button size="sm" className="mt-4" onClick={() => setShowCreate(true)}>
               <Plus className="w-4 h-4 mr-2" /> New Test Run
             </Button>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "wouter";
-import { useGetProject, getGetProjectQueryKey, useListProjectUsers, useListTestRuns, useGetTestRunFullReport, getListProjectUsersQueryKey, getListTestRunsQueryKey, getGetTestRunFullReportQueryKey } from "@workspace/api-client-react";
+import { getAuthUser } from "@/lib/auth";
+import { useGetProject, getGetProjectQueryKey } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 
 export default function ProjectDetail() {
   const { projectId } = useParams();
+  const user = getAuthUser();
   const id = parseInt(projectId || "0", 10);
   const user = getAuthUser();
   const queryClient = useQueryClient();
@@ -180,31 +182,35 @@ export default function ProjectDetail() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Link href={`/projects/${id}/users`}>
-              <Button variant="outline" size="sm">
-                <Users className="w-4 h-4 mr-2" />
-                {isSignedOff ? "View Users" : "Manage Users"}
-              </Button>
-            </Link>
+            {user?.role !== 'TESTER' && (
+              <Link href={`/projects/${id}/users`}>
+                <Button variant="outline" size="sm">
+                  <Users className="w-4 h-4 mr-2" />
+                  Manage Users
+                </Button>
+              </Link>
+            )}
             <Link href={`/projects/${id}/test-runs`}>
               <Button variant="outline" size="sm">
                 <CalendarClock className="w-4 h-4 mr-2" />
                 Test Runs
               </Button>
             </Link>
-            <Link href={`/projects/${id}/stats`}>
-              <Button variant="outline" size="sm">
-                <LayoutList className="w-4 h-4 mr-2" />
-                Analytics
-              </Button>
-            </Link>
-            {!isSignedOff && isAuthorOrAdmin && (
-              <Link href={`/projects/${id}/edit`}>
-                <Button variant="outline" size="sm">
-                  <Edit2 className="w-4 h-4 mr-2" />
-                  Edit Metadata
-                </Button>
-              </Link>
+            {user?.role !== 'TESTER' && (
+              <>
+                <Link href={`/projects/${id}/stats`}>
+                  <Button variant="outline" size="sm">
+                    <LayoutList className="w-4 h-4 mr-2" />
+                    Analytics
+                  </Button>
+                </Link>
+                <Link href={`/projects/${id}/edit`}>
+                  <Button variant="outline" size="sm">
+                    <Edit2 className="w-4 h-4 mr-2" />
+                    Edit Metadata
+                  </Button>
+                </Link>
+              </>
             )}
             <Link href={`/tester`} target="_blank">
               <Button size="sm">

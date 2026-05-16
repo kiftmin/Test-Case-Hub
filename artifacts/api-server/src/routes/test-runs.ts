@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { authenticate, authorize } from "../middlewares/auth";
 import { db,
   testRunsTable,
   testRunUseCasesTable,
@@ -154,9 +155,9 @@ router.get("/projects/:projectId/test-runs", async (req, res) => {
  * POST /projects/:projectId/test-runs
  * Create a new test run. Defaults to including all use cases in the project.
  */
-router.post("/projects/:projectId/test-runs", async (req, res) => {
+router.post("/projects/:projectId/test-runs", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
   try {
-    const projectId = parseInt(req.params.projectId);
+    const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) return res.status(400).json({ error: "Invalid project ID" });
 
     const project = await db.query.projectsTable.findFirst({
@@ -231,9 +232,9 @@ router.get("/test-runs/:testRunId", async (req, res) => {
  * PATCH /test-runs/:testRunId
  * Update top-level test run fields (name, scheduledAt, status).
  */
-router.patch("/test-runs/:testRunId", async (req, res) => {
+router.patch("/test-runs/:testRunId", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
   try {
-    const testRunId = parseInt(req.params.testRunId);
+    const testRunId = parseInt(req.params.testRunId as string);
     if (isNaN(testRunId)) return res.status(400).json({ error: "Invalid test run ID" });
 
     const body = UpdateTestRunBody.parse(req.body);
@@ -265,10 +266,10 @@ router.patch("/test-runs/:testRunId", async (req, res) => {
  *   - toggle free pass
  *   - update execution status (pending / in_progress / passed / failed)
  */
-router.patch("/test-runs/:testRunId/use-cases/:testRunUseCaseId", async (req, res) => {
+router.patch("/test-runs/:testRunId/use-cases/:testRunUseCaseId", authenticate, async (req, res) => {
   try {
-    const testRunId = parseInt(req.params.testRunId);
-    const testRunUseCaseId = parseInt(req.params.testRunUseCaseId);
+    const testRunId = parseInt(req.params.testRunId as string);
+    const testRunUseCaseId = parseInt(req.params.testRunUseCaseId as string);
     if (isNaN(testRunId) || isNaN(testRunUseCaseId)) {
       return res.status(400).json({ error: "Invalid ID" });
     }
@@ -284,6 +285,14 @@ router.patch("/test-runs/:testRunId/use-cases/:testRunUseCaseId", async (req, re
     const body = UpdateTestRunUseCaseBody.parse(req.body);
 
     const updateData: Partial<typeof existing> = {};
+
+    // Authorization check for TESTER role
+    if (req.user?.role === 'TESTER') {
+      if (body.freePass !== undefined || body.assignedTesterId !== undefined) {
+        return res.status(403).json({ error: "Testers cannot modify assignments or free pass status" });
+      }
+    }
+
     if (body.freePass !== undefined) updateData.freePass = body.freePass;
     if (body.status !== undefined) updateData.status = body.status;
     if ("assignedTesterId" in body) updateData.assignedTesterId = body.assignedTesterId ?? null;
@@ -310,9 +319,9 @@ router.patch("/test-runs/:testRunId/use-cases/:testRunUseCaseId", async (req, re
  * POST /test-runs/:testRunId/use-cases
  * Add a use case to an existing (non-completed) test run.
  */
-router.post("/test-runs/:testRunId/use-cases", async (req, res) => {
+router.post("/test-runs/:testRunId/use-cases", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
   try {
-    const testRunId = parseInt(req.params.testRunId);
+    const testRunId = parseInt(req.params.testRunId as string);
     if (isNaN(testRunId)) return res.status(400).json({ error: "Invalid test run ID" });
 
     const body = z.object({ useCaseId: z.number() }).parse(req.body);
@@ -353,10 +362,10 @@ router.post("/test-runs/:testRunId/use-cases", async (req, res) => {
  * DELETE /test-runs/:testRunId/use-cases/:testRunUseCaseId
  * Remove a use case from a test run (only if pending).
  */
-router.delete("/test-runs/:testRunId/use-cases/:testRunUseCaseId", async (req, res) => {
+router.delete("/test-runs/:testRunId/use-cases/:testRunUseCaseId", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
   try {
-    const testRunId = parseInt(req.params.testRunId);
-    const testRunUseCaseId = parseInt(req.params.testRunUseCaseId);
+    const testRunId = parseInt(req.params.testRunId as string);
+    const testRunUseCaseId = parseInt(req.params.testRunUseCaseId as string);
     if (isNaN(testRunId) || isNaN(testRunUseCaseId)) {
       return res.status(400).json({ error: "Invalid ID" });
     }
@@ -457,9 +466,9 @@ router.post("/test-runs/:testRunId/use-cases/:useCaseId/sync", async (req, res) 
  * Create a new test run based on a completed (failed) run.
  * By default includes all use cases; if failedOnly=true, only failed ones.
  */
-router.post("/test-runs/:testRunId/re-run", async (req, res) => {
+router.post("/test-runs/:testRunId/re-run", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
   try {
-    const sourceTestRunId = parseInt(req.params.testRunId);
+    const sourceTestRunId = parseInt(req.params.testRunId as string);
     if (isNaN(sourceTestRunId)) return res.status(400).json({ error: "Invalid test run ID" });
 
     const sourceRun = await db.query.testRunsTable.findFirst({

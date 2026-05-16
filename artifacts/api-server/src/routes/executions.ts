@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, executionsTable, attachmentsTable, stepResultsTable, testRunsTable, testRunUseCasesTable, testCasesTable, usersTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 import { CreateExecutionBody, UpdateStepResultBody } from "@workspace/api-zod";
+import { authenticate } from "../middlewares/auth";
 
 const router = Router();
 
@@ -57,9 +58,9 @@ router.get("/test-cases/:testCaseId/executions", async (req, res) => {
   }
 });
 
-router.post("/test-cases/:testCaseId/executions", async (req, res) => {
+router.post("/test-cases/:testCaseId/executions", authenticate, async (req, res) => {
   try {
-    const testCaseId = parseInt(req.params.testCaseId);
+    const testCaseId = parseInt(req.params.testCaseId as string);
     if (isNaN(testCaseId)) return res.status(400).json({ error: "Invalid test case ID" });
 
     const body = CreateExecutionBody.parse(req.body);
@@ -146,9 +147,9 @@ router.post("/test-cases/:testCaseId/executions", async (req, res) => {
   }
 });
 
-router.put("/executions/:executionId", async (req, res) => {
+router.put("/executions/:executionId", authenticate, async (req, res) => {
   try {
-    const executionId = parseInt(req.params.executionId);
+    const executionId = parseInt(req.params.executionId as string);
     if (isNaN(executionId)) return res.status(400).json({ error: "Invalid execution ID" });
 
     const body = CreateExecutionBody.parse(req.body);
@@ -220,10 +221,10 @@ router.put("/executions/:executionId", async (req, res) => {
   }
 });
 
-router.put("/executions/:executionId/steps/:stepId/result", async (req, res) => {
+router.put("/executions/:executionId/steps/:stepId/result", authenticate, async (req, res) => {
   try {
-    const executionId = parseInt(req.params.executionId);
-    const stepId = parseInt(req.params.stepId);
+    const executionId = parseInt(req.params.executionId as string);
+    const stepId = parseInt(req.params.stepId as string);
     if (isNaN(executionId) || isNaN(stepId)) return res.status(400).json({ error: "Invalid execution or step ID" });
 
     const body = UpdateStepResultBody.parse(req.body);

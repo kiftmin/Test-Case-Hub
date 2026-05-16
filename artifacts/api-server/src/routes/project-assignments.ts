@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, projectAssignmentsTable, usersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { AssignUserToProjectBody } from "@workspace/api-zod";
+import { authenticate, authorize } from "../middlewares/auth";
 
 const router = Router();
 
@@ -35,9 +36,9 @@ router.get("/projects/:projectId/users", async (req, res) => {
   }
 });
 
-router.post("/projects/:projectId/users", async (req, res) => {
+router.post("/projects/:projectId/users", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
   try {
-    const projectId = parseInt(req.params.projectId);
+    const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) return res.status(400).json({ error: "Invalid project ID" });
 
     const body = AssignUserToProjectBody.parse(req.body);
@@ -82,10 +83,10 @@ router.post("/projects/:projectId/users", async (req, res) => {
   }
 });
 
-router.delete("/projects/:projectId/users/:userId", async (req, res) => {
+router.delete("/projects/:projectId/users/:userId", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
   try {
-    const projectId = parseInt(req.params.projectId);
-    const userId = parseInt(req.params.userId);
+    const projectId = parseInt(req.params.projectId as string);
+    const userId = parseInt(req.params.userId as string);
     if (isNaN(projectId) || isNaN(userId)) return res.status(400).json({ error: "Invalid IDs" });
 
     await db.delete(projectAssignmentsTable).where(
