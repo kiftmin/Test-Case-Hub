@@ -18,8 +18,8 @@ import { authenticate } from "../middlewares/auth";
 const router: IRouter = Router();
 
 // Public routes
-router.use(authRouter);
-router.use(healthRouter);
+router.use("/auth", authRouter);
+router.use("/health", healthRouter);
 
 router.get("/", (req, res) => {
   res.json({ status: "running", message: "UAT Test Case Management System API" });
