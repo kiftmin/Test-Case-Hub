@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, testStepsTable, attachmentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { CreateTestStepBody, BulkCreateTestStepsBody } from "@workspace/api-zod";
+import { authenticate, authorize } from "../middlewares/auth";
 
 const router = Router();
 
@@ -39,9 +40,9 @@ router.get("/test-cases/:testCaseId/steps", async (req, res) => {
   }
 });
 
-router.post("/test-cases/:testCaseId/steps", async (req, res) => {
+router.post("/test-cases/:testCaseId/steps", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
   try {
-    const testCaseId = parseInt(req.params.testCaseId);
+    const testCaseId = parseInt(req.params.testCaseId as string);
     if (isNaN(testCaseId)) return res.status(400).json({ error: "Invalid test case ID" });
 
     const body = CreateTestStepBody.parse(req.body);
@@ -73,9 +74,9 @@ router.post("/test-cases/:testCaseId/steps", async (req, res) => {
   }
 });
 
-router.post("/test-cases/:testCaseId/steps/bulk", async (req, res) => {
+router.post("/test-cases/:testCaseId/steps/bulk", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
   try {
-    const testCaseId = parseInt(req.params.testCaseId);
+    const testCaseId = parseInt(req.params.testCaseId as string);
     if (isNaN(testCaseId)) return res.status(400).json({ error: "Invalid test case ID" });
 
     const body = BulkCreateTestStepsBody.parse(req.body);
@@ -108,9 +109,9 @@ router.post("/test-cases/:testCaseId/steps/bulk", async (req, res) => {
   }
 });
 
-router.put("/steps/:stepId", async (req, res) => {
+router.put("/steps/:stepId", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
   try {
-    const stepId = parseInt(req.params.stepId);
+    const stepId = parseInt(req.params.stepId as string);
     if (isNaN(stepId)) return res.status(400).json({ error: "Invalid step ID" });
     
     req.log.info({ stepId }, "Updating test step");
@@ -162,9 +163,9 @@ router.put("/steps/:stepId", async (req, res) => {
   }
 });
 
-router.delete("/steps/:stepId", async (req, res) => {
+router.delete("/steps/:stepId", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
   try {
-    const stepId = parseInt(req.params.stepId);
+    const stepId = parseInt(req.params.stepId as string);
     if (isNaN(stepId)) return res.status(400).json({ error: "Invalid step ID" });
 
     const deleteQuery = db.delete(testStepsTable).where(eq(testStepsTable.id, stepId));

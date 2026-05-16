@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, useCasesTable, testCasesTable } from "@workspace/db";
 import { eq, count } from "drizzle-orm";
 import { CreateUseCaseBody } from "@workspace/api-zod";
+import { authenticate, authorize } from "../middlewares/auth";
 
 const router = Router();
 
@@ -22,9 +23,9 @@ router.get("/projects/:projectId/use-cases", async (req, res) => {
   }
 });
 
-router.post("/projects/:projectId/use-cases", async (req, res) => {
+router.post("/projects/:projectId/use-cases", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
   try {
-    const projectId = parseInt(req.params.projectId);
+    const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) return res.status(400).json({ error: "Invalid project ID" });
 
     const body = CreateUseCaseBody.parse(req.body);
@@ -47,9 +48,9 @@ router.post("/projects/:projectId/use-cases", async (req, res) => {
   }
 });
 
-router.put("/use-cases/:useCaseId", async (req, res) => {
+router.put("/use-cases/:useCaseId", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
   try {
-    const useCaseId = parseInt(req.params.useCaseId);
+    const useCaseId = parseInt(req.params.useCaseId as string);
     if (isNaN(useCaseId)) return res.status(400).json({ error: "Invalid use case ID" });
 
     const body = CreateUseCaseBody.parse(req.body);
@@ -75,9 +76,9 @@ router.put("/use-cases/:useCaseId", async (req, res) => {
   }
 });
 
-router.delete("/use-cases/:useCaseId", async (req, res) => {
+router.delete("/use-cases/:useCaseId", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
   try {
-    const useCaseId = parseInt(req.params.useCaseId);
+    const useCaseId = parseInt(req.params.useCaseId as string);
     if (isNaN(useCaseId)) return res.status(400).json({ error: "Invalid use case ID" });
 
     await db.delete(useCasesTable).where(eq(useCasesTable.id, useCaseId));

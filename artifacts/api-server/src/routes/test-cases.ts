@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, testCasesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { CreateTestCaseBody } from "@workspace/api-zod";
+import { authenticate, authorize } from "../middlewares/auth";
 
 const router = Router();
 
@@ -22,9 +23,9 @@ router.get("/use-cases/:useCaseId/test-cases", async (req, res) => {
   }
 });
 
-router.post("/use-cases/:useCaseId/test-cases", async (req, res) => {
+router.post("/use-cases/:useCaseId/test-cases", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
   try {
-    const useCaseId = parseInt(req.params.useCaseId);
+    const useCaseId = parseInt(req.params.useCaseId as string);
     if (isNaN(useCaseId)) return res.status(400).json({ error: "Invalid use case ID" });
 
     const body = CreateTestCaseBody.parse(req.body);
@@ -46,9 +47,9 @@ router.post("/use-cases/:useCaseId/test-cases", async (req, res) => {
   }
 });
 
-router.put("/test-cases/:testCaseId", async (req, res) => {
+router.put("/test-cases/:testCaseId", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
   try {
-    const testCaseId = parseInt(req.params.testCaseId);
+    const testCaseId = parseInt(req.params.testCaseId as string);
     if (isNaN(testCaseId)) return res.status(400).json({ error: "Invalid test case ID" });
 
     const body = CreateTestCaseBody.parse(req.body);
@@ -74,9 +75,9 @@ router.put("/test-cases/:testCaseId", async (req, res) => {
   }
 });
 
-router.delete("/test-cases/:testCaseId", async (req, res) => {
+router.delete("/test-cases/:testCaseId", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
   try {
-    const testCaseId = parseInt(req.params.testCaseId);
+    const testCaseId = parseInt(req.params.testCaseId as string);
     if (isNaN(testCaseId)) return res.status(400).json({ error: "Invalid test case ID" });
 
     await db.delete(testCasesTable).where(eq(testCasesTable.id, testCaseId));
