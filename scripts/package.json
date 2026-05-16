@@ -7,8 +7,13 @@
     "hello": "tsx ./src/hello.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "@workspace/db": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@types/bcryptjs": "^2.4.6",
     "tsx": "catalog:"
   }
 }

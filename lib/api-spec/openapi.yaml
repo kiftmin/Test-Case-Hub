@@ -1069,7 +1069,12 @@ components:
           type: string
         updatedAt:
           type: string
-      required: [id, projectCode, name, designedBy, moduleName, designDate, version, versionDate, createdAt, updatedAt]
+        isSignedOff:
+          type: integer
+        signOffData:
+          type: string
+          nullable: true
+      required: [id, projectCode, name, designedBy, moduleName, designDate, version, versionDate, createdAt, updatedAt, isSignedOff]
 
     TestProjectDetail:
       allOf:

@@ -125,7 +125,12 @@ export default function TesterDashboard() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {testRuns.map((run) => (
+            {testRuns.map((run) => {
+              const project = projects?.find(p => p.projectCode === run.projectCode);
+              const isSignedOff = (project as any)?.isSignedOff === 1;
+              if (isSignedOff) return null;
+
+              return (
               <Card key={run.id} className={cn(
                 "relative overflow-hidden border-border transition-all",
                 run.isAvailable ? "hover:border-primary/50 hover:shadow-md cursor-pointer" : "opacity-80"
@@ -163,7 +168,8 @@ export default function TesterDashboard() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
@@ -192,33 +198,60 @@ export default function TesterDashboard() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProjects?.map(project => (
-            <Link key={project.id} href={`/tester/${project.projectCode}`}>
-              <Card className="group hover:border-primary/50 transition-all cursor-pointer hover:shadow-md border-border bg-card">
-                <CardHeader className="pb-3">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-primary/10 text-primary">
-                      {project.projectCode}
-                    </span>
-                    <span className="text-xs text-muted-foreground">v{project.version}.0</span>
-                  </div>
-                  <CardTitle className="group-hover:text-primary transition-colors">{project.name}</CardTitle>
-                  <CardDescription className="line-clamp-2 mt-1">
-                    {project.moduleName}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <div className="flex items-center">
-                      <ClipboardCheck className="w-4 h-4 mr-1.5" />
-                      <span>Ready for testing</span>
-                    </div>
-                    <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+          {filteredProjects?.map(project => {
+            const isSignedOff = (project as any).isSignedOff === 1;
+            return (
+              <div key={project.id}>
+                {isSignedOff ? (
+                  <Card className="border-border bg-card/50 opacity-75">
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                          {project.projectCode}
+                        </span>
+                        <Badge className="bg-green-100 text-green-800 border-green-200 text-[10px] font-bold uppercase">Signed Off</Badge>
+                      </div>
+                      <CardTitle className="text-muted-foreground">{project.name}</CardTitle>
+                      <CardDescription className="line-clamp-2 mt-1">
+                        Access Restricted: Project is signed off.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-xs font-medium text-amber-600 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5" /> Testing phase complete
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Link href={`/tester/${project.projectCode}`}>
+                    <Card className="group hover:border-primary/50 transition-all cursor-pointer hover:shadow-md border-border bg-card">
+                      <CardHeader className="pb-3">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-primary/10 text-primary">
+                            {project.projectCode}
+                          </span>
+                          <span className="text-xs text-muted-foreground">v{project.version}.0</span>
+                        </div>
+                        <CardTitle className="group-hover:text-primary transition-colors">{project.name}</CardTitle>
+                        <CardDescription className="line-clamp-2 mt-1">
+                          {project.moduleName}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center justify-between text-sm text-muted-foreground">
+                          <div className="flex items-center">
+                            <ClipboardCheck className="w-4 h-4 mr-1.5" />
+                            <span>Ready for testing</span>
+                          </div>
+                          <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </AppLayout>

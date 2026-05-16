@@ -13,9 +13,10 @@ import { StepAttachments } from "./StepAttachments";
 
 interface TestCaseEditorProps {
   testCaseId: number;
+  readOnly?: boolean;
 }
 
-export function TestCaseEditor({ testCaseId }: TestCaseEditorProps) {
+export function TestCaseEditor({ testCaseId, readOnly }: TestCaseEditorProps) {
   const queryClient = useQueryClient();
   const user = getAuthUser();
   const { data: steps = [], isLoading } = useListTestSteps(testCaseId, {
@@ -233,6 +234,7 @@ export function TestCaseEditor({ testCaseId }: TestCaseEditorProps) {
                     stepId={step.id} 
                     testCaseId={testCaseId} 
                     attachments={step.attachments || []} 
+                    readOnly={readOnly}
                   />
                 </>
               )}

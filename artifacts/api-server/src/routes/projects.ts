@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, projectsTable, useCasesTable, testCasesTable, testStepsTable, executionsTable, attachmentsTable, stepResultsTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { db, projectsTable, useCasesTable, testCasesTable, testStepsTable, executionsTable, attachmentsTable, stepResultsTable, usersTable, projectAssignmentsTable, testRunsTable, testRunUseCasesTable } from "@workspace/db";
+import { eq, desc, and } from "drizzle-orm";
 import { CreateProjectBody } from "@workspace/api-zod";
 import { nanoid } from "nanoid";
 import { authenticate, authorize } from "../middlewares/auth";
@@ -51,7 +51,7 @@ async function buildProjectDetail(projectId: number) {
   const [stepAttachments, stepResults] = await Promise.all([
     stepIds.length > 0 ? db.query.attachmentsTable.findMany({
       where: (a, { and, eq, inArray }) => and(
-        eq(a.entityType, "step"),
+        eq(a.entityType, "test_step"),
         inArray(a.entityId, stepIds)
       ),
     }) : Promise.resolve([] as any[]),
@@ -242,6 +242,80 @@ router.delete("/projects/:projectId", authenticate, authorize(['ADMIN', 'AUTHOR'
   } catch (err) {
     req.log.error({ err }, "Failed to delete project");
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * POST /projects/:projectId/sign-off
+ */
+router.post("/projects/:projectId/sign-off", async (req, res) => {
+  try {
+    const projectId = parseInt(req.params.projectId);
+    if (isNaN(projectId)) return res.status(400).json({ error: "Invalid project ID" });
+
+    const { userId, confirmations } = req.body;
+
+    // 1. Verify Project Owner or Admin
+    const user = await db.query.usersTable.findFirst({ where: eq(usersTable.id, userId) });
+    const assignment = await db.query.projectAssignmentsTable.findFirst({
+      where: and(
+        eq(projectAssignmentsTable.projectId, projectId),
+        eq(projectAssignmentsTable.userId, userId)
+      )
+    });
+
+    if (user?.role !== "ADMIN" && assignment?.role !== "OWNER") {
+      return res.status(403).json({ error: "Only Project Owner or Admin can sign off" });
+    }
+
+    // Optional: Check if all use cases passed in the last run
+    // "When project sign-off is selected, the app must look at the last completed test run.
+    // If all use cases passed the sign-off is actioned."
+    // Interpret: If there are failures, they must be "accepted to be fixed after release (workarounds)".
+
+    // 2. Get latest completed test run
+    const lastRun = await db.query.testRunsTable.findFirst({
+      where: and(
+        eq(testRunsTable.projectId, projectId),
+        eq(testRunsTable.status, "completed")
+      ),
+      orderBy: desc(testRunsTable.scheduledAt)
+    });
+
+    if (!lastRun) {
+      return res.status(422).json({ error: "No completed test runs found for sign-off" });
+    }
+
+    // 3. Get use cases from the last run to identify failed ones
+    const runUcs = await db.query.testRunUseCasesTable.findMany({
+      where: eq(testRunUseCasesTable.testRunId, lastRun.id)
+    });
+
+    const failedUcs = runUcs.filter(uc => uc.status === "failed");
+
+    // 4. Update project with sign-off status
+    const signOffData = {
+      signedBy: user!.name,
+      signedAt: new Date().toISOString(),
+      lastTestRunId: lastRun.id,
+      confirmations,
+      openIssues: failedUcs.map(uc => ({
+        useCaseId: uc.useCaseId,
+        status: "accepted_workaround"
+      }))
+    };
+
+    await db.update(projectsTable)
+      .set({
+        isSignedOff: 1,
+        signOffData: JSON.stringify(signOffData)
+      })
+      .where(eq(projectsTable.id, projectId));
+
+    res.json({ success: true, signOffData });
+  } catch (err: any) {
+    req.log.error({ err }, "Failed to sign off project");
+    res.status(500).json({ error: "Internal server error", details: err.message });
   }
 });
 

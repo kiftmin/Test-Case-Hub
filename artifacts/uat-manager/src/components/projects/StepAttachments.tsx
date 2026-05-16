@@ -21,9 +21,10 @@ interface StepAttachmentsProps {
   stepId: number;
   testCaseId: number;
   attachments: Attachment[];
+  readOnly?: boolean;
 }
 
-export function StepAttachments({ stepId, testCaseId, attachments }: StepAttachmentsProps) {
+export function StepAttachments({ stepId, testCaseId, attachments, readOnly }: StepAttachmentsProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
@@ -101,36 +102,38 @@ export function StepAttachments({ stepId, testCaseId, attachments }: StepAttachm
         <div className="space-y-4 py-4">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-medium">Files</h4>
-            <div className="relative">
-              <input 
-                type="file" 
-                className="hidden" 
-                id={`file-upload-${stepId}`}
-                onChange={handleFileUpload}
-                disabled={isUploading}
-              />
-              <label 
-                htmlFor={`file-upload-${stepId}`}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium cursor-pointer hover:bg-primary/90 transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                {success ? (
-                  <>
-                    <Check className="w-3 h-3" />
-                    Uploaded!
-                  </>
-                ) : isUploading ? (
-                  <>
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-3 h-3" />
-                    Upload Reference
-                  </>
-                )}
-              </label>
-            </div>
+            {!readOnly && (
+              <div className="relative">
+                <input
+                  type="file"
+                  className="hidden"
+                  id={`file-upload-${stepId}`}
+                  onChange={handleFileUpload}
+                  disabled={isUploading}
+                />
+                <label
+                  htmlFor={`file-upload-${stepId}`}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium cursor-pointer hover:bg-primary/90 transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {success ? (
+                    <>
+                      <Check className="w-3 h-3" />
+                      Uploaded!
+                    </>
+                  ) : isUploading ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-3 h-3" />
+                      Upload Reference
+                    </>
+                  )}
+                </label>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2 max-h-[300px] overflow-y-auto">
@@ -152,14 +155,16 @@ export function StepAttachments({ stepId, testCaseId, attachments }: StepAttachm
                       {file.fileName}
                     </a>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => handleDelete(file.id)}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
+                  {!readOnly && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => handleDelete(file.id)}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
                 </div>
               ))
             )}

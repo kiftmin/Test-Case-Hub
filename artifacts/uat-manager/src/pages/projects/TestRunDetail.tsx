@@ -56,7 +56,8 @@ import {
   useListUseCases,
   getGetTestRunQueryKey,
   getListProjectUsersQueryKey,
-  getListUseCasesQueryKey
+  getListUseCasesQueryKey,
+  getGetTestRunFullReportQueryKey
 } from "@workspace/api-client-react";
 import type { User, TestRunDetail as APITestRunDetail, TestRunUseCase } from "@workspace/api-client-react";
 

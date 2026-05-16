@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, formatDistanceToNow } from "date-fns";
+import { useGetProject, getGetProjectQueryKey } from "@workspace/api-client-react";
 
 const API_BASE = "/api";
 
@@ -166,6 +167,11 @@ export default function TestRunList() {
   const user = getAuthUser();
   const id = parseInt(projectId || "0", 10);
   const [showCreate, setShowCreate] = useState(false);
+
+  const { data: project } = useGetProject(id, {
+    query: { enabled: !!id, queryKey: getGetProjectQueryKey(id) }
+  });
+  const isSignedOff = (project as any)?.isSignedOff === 1;
 
   const { data: runs = [], isLoading } = useQuery<TestRun[]>({
     queryKey: ["test-runs", id],
