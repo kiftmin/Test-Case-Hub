@@ -5,15 +5,14 @@ import { getAuthUser } from "@/lib/auth";
 
 export function Sidebar() {
   const [location] = useLocation();
+  const user = getAuthUser();
 
   const navigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
     { name: "Projects", href: "/projects", icon: FolderKanban },
-    { name: "Users", href: "/users", icon: UserPlus },
+    ...(user?.role === 'ADMIN' ? [{ name: "Users", href: "/users", icon: UserPlus }] : []),
     { name: "Tester Portal", href: "/tester", icon: PlaySquare },
   ];
-
-  const user = getAuthUser();
 
   return (
     <div className="flex h-screen w-64 flex-col bg-sidebar border-r border-sidebar-border">
@@ -68,4 +67,4 @@ export function Sidebar() {
       </div>
     </div>
   );
-}
+}
