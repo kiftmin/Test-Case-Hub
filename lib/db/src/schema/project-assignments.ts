@@ -9,7 +9,7 @@ export const projectAssignmentsTable = pgTable("project_assignments", {
   id: serial("id").primaryKey(),
   projectId: integer("project_id").notNull().references(() => projectsTable.id, { onDelete: "cascade" }),
   userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
-  role: text("role").notNull(), // Specific role for this project, e.g., AUTHOR or TESTER
+  role: text("role").notNull(), // Specific role for this project, e.g., AUTHOR, TESTER, or OWNER
   assignedAt: timestamp("assigned_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

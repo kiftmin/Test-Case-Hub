@@ -18,9 +18,10 @@ interface UseCaseTreeProps {
   project: TestProjectDetail;
   selectedTestCaseId: number | null;
   onSelectTestCase: (id: number) => void;
+  readOnly?: boolean;
 }
 
-export function UseCaseTree({ project, selectedTestCaseId, onSelectTestCase }: UseCaseTreeProps) {
+export function UseCaseTree({ project, selectedTestCaseId, onSelectTestCase, readOnly }: UseCaseTreeProps) {
   const queryClient = useQueryClient();
   const createUseCase = useCreateUseCase();
   const createTestCase = useCreateTestCase();
@@ -202,31 +203,33 @@ export function UseCaseTree({ project, selectedTestCaseId, onSelectTestCase }: U
                   <Folder className="w-4 h-4 text-primary shrink-0" />
                   <span className="text-sm font-medium truncate">{useCase.code} - {useCase.name}</span>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="w-6 h-6 opacity-0 group-hover:opacity-100">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => {
-                      setAddingTestCaseTo(useCase.id);
-                      setExpandedUseCases(prev => ({ ...prev, [useCase.id]: true }));
-                    }}>
-                      <Plus className="w-4 h-4 mr-2" /> Add Test Case
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => startEditUseCase(useCase)}>
-                      <Edit2 className="w-4 h-4 mr-2" /> Rename
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      className="text-destructive focus:text-destructive"
-                      onClick={() => handleDeleteUseCase(useCase.id)}
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" /> Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {!readOnly && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="w-6 h-6 opacity-0 group-hover:opacity-100">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => {
+                        setAddingTestCaseTo(useCase.id);
+                        setExpandedUseCases(prev => ({ ...prev, [useCase.id]: true }));
+                      }}>
+                        <Plus className="w-4 h-4 mr-2" /> Add Test Case
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => startEditUseCase(useCase)}>
+                        <Edit2 className="w-4 h-4 mr-2" /> Rename
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => handleDeleteUseCase(useCase.id)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" /> Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </>
             )}
           </div>
@@ -268,24 +271,26 @@ export function UseCaseTree({ project, selectedTestCaseId, onSelectTestCase }: U
                         <FileText className="w-3.5 h-3.5 shrink-0" />
                         <span className="truncate flex-1">TC-{testCase.caseNumber}: {testCase.title}</span>
                       </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="w-5 h-5 opacity-0 group-hover/tc:opacity-100 shrink-0">
-                            <MoreHorizontal className="w-3.5 h-3.5" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => startEditTestCase(testCase)}>
-                            <Edit2 className="w-4 h-4 mr-2" /> Rename
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => handleDeleteTestCase(testCase.id)}
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" /> Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      {!readOnly && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="w-5 h-5 opacity-0 group-hover/tc:opacity-100 shrink-0">
+                              <MoreHorizontal className="w-3.5 h-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => startEditTestCase(testCase)}>
+                              <Edit2 className="w-4 h-4 mr-2" /> Rename
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => handleDeleteTestCase(testCase.id)}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </div>
                   )}
                 </div>
@@ -312,7 +317,7 @@ export function UseCaseTree({ project, selectedTestCaseId, onSelectTestCase }: U
         </div>
       ))}
 
-      {isAddingUseCase ? (
+      {!readOnly && (isAddingUseCase ? (
         <div className="px-2 py-1 relative">
           <Input
             autoFocus
@@ -327,14 +332,15 @@ export function UseCaseTree({ project, selectedTestCaseId, onSelectTestCase }: U
           {isSaving && <Loader2 className="absolute right-4 top-2.5 w-4 h-4 animate-spin text-muted-foreground" />}
         </div>
       ) : (
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="w-full justify-start text-muted-foreground mt-2"
-          onClick={() => setIsAddingUseCase(true)}
-        >
-          <Plus className="w-4 h-4 mr-2" /> Add Use Case
-        </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start text-muted-foreground mt-2"
+            onClick={() => setIsAddingUseCase(true)}
+          >
+            <Plus className="w-4 h-4 mr-2" /> Add Use Case
+          </Button>
+        )
       )}
     </div>
   );

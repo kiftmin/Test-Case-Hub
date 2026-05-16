@@ -12,6 +12,8 @@ export const projectsTable = pgTable("projects", {
   testLink: text("test_link"),
   version: integer("version").notNull().default(1),
   versionDate: text("version_date").notNull(),
+  isSignedOff: integer("is_signed_off").notNull().default(0), // 0 = false, 1 = true
+  signOffData: text("sign_off_data"), // JSON string
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

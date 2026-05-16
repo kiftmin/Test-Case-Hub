@@ -26,6 +26,7 @@ export default function ProjectUsers() {
   const id = parseInt(projectId || "0", 10);
   
   const { data: project, isLoading: isProjectLoading } = useGetProject(id);
+  const isSignedOff = (project as any)?.isSignedOff === 1;
   const { data: assignments, isLoading: isAssignmentsLoading, refetch: refetchAssignments } = useListProjectUsers(id);
   const { data: allUsers, isLoading: isUsersLoading } = useListUsers();
   
@@ -122,19 +123,23 @@ export default function ProjectUsers() {
                       <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-muted text-xs font-medium">
                         {assignment.role === "AUTHOR" ? (
                           <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
+                        ) : assignment.role === "OWNER" ? (
+                          <ShieldCheck className="w-3.5 h-3.5 text-purple-500" />
                         ) : (
                           <Shield className="w-3.5 h-3.5 text-green-500" />
                         )}
                         {assignment.role}
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => handleRemove(assignment.userId)}
-                      >
-                        <UserMinus className="w-4 h-4" />
-                      </Button>
+                      {!isSignedOff && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => handleRemove(assignment.userId)}
+                        >
+                          <UserMinus className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))
@@ -143,10 +148,11 @@ export default function ProjectUsers() {
           </CardContent>
         </Card>
 
-        <Card className="h-fit">
-          <CardHeader>
-            <CardTitle className="text-lg">Add User</CardTitle>
-          </CardHeader>
+        {!isSignedOff && (
+          <Card className="h-fit">
+            <CardHeader>
+              <CardTitle className="text-lg">Add User</CardTitle>
+            </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Select User</label>
@@ -178,20 +184,22 @@ export default function ProjectUsers() {
                 <SelectContent>
                   <SelectItem value="TESTER">TESTER</SelectItem>
                   <SelectItem value="AUTHOR">AUTHOR</SelectItem>
+                  <SelectItem value="OWNER">OWNER</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            <Button 
-              className="w-full" 
-              onClick={handleAssign}
-              disabled={!selectedUserId || assignMutation.isPending}
-            >
-              <UserPlus className="w-4 h-4 mr-2" />
-              Assign to Project
-            </Button>
-          </CardContent>
-        </Card>
+              <Button
+                className="w-full"
+                onClick={handleAssign}
+                disabled={!selectedUserId || assignMutation.isPending}
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                Assign to Project
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </AppLayout>
   );

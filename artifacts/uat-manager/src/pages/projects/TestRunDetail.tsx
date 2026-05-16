@@ -55,7 +55,8 @@ import {
   useListUseCases,
   getGetTestRunQueryKey,
   getListProjectUsersQueryKey,
-  getListUseCasesQueryKey
+  getListUseCasesQueryKey,
+  getGetTestRunFullReportQueryKey
 } from "@workspace/api-client-react";
 import type { User, TestRunDetail as APITestRunDetail, TestRunUseCase } from "@workspace/api-client-react";
 
@@ -138,7 +139,10 @@ export default function TestRunDetail() {
   });
 
   const { data: detailedData, isLoading: isLoadingDetailed, refetch: fetchDetailed, isFetching: isFetchingDetailed } = useGetTestRunFullReport(trId, {
-    query: { enabled: !!trId && viewMode === "results" }
+    query: {
+      enabled: !!trId && viewMode === "results",
+      queryKey: getGetTestRunFullReportQueryKey(trId)
+    }
   });
 
   const handleExportDetailed = async () => {
@@ -282,9 +286,11 @@ export default function TestRunDetail() {
                   {isFetchingDetailed ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
                   Detailed PDF
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setShowRerun(true)}>
-                  <RotateCcw className="w-4 h-4 mr-2" /> Re-run Failed
-                </Button>
+                {!run.passed && (
+                  <Button size="sm" variant="outline" onClick={() => setShowRerun(true)}>
+                    <RotateCcw className="w-4 h-4 mr-2" /> Re-run Failed
+                  </Button>
+                )}
               </>
             )}
           </div>

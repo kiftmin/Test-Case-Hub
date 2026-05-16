@@ -632,86 +632,94 @@ router.get("/test-runs/:testRunId/full-report", async (req, res) => {
     const detailedUseCases = await Promise.all(
       runDetail.useCases.map(async (uc) => {
         const testCases = await db.query.testCasesTable.findMany({
-          where: eq(testCasesTable.useCaseId, uc.useCaseId),
-          orderBy: testCasesTable.caseNumber,
+          where: (tc, { eq }) => eq(tc.useCaseId, uc.useCaseId),
+          orderBy: (tc, { asc }) => asc(tc.caseNumber),
         });
 
-        const testCasesWithExecutions = await Promise.all(
-          testCases.map(async (tc) => {
-            const execution = await db.query.executionsTable.findFirst({
-              where: and(
-                eq(executionsTable.testCaseId, tc.id),
-                eq(executionsTable.testRunId, testRunId)
-              ),
-              orderBy: desc(executionsTable.executedAt),
-            });
+        const tcIds = testCases.map((tc) => tc.id);
 
-            let stepResults: any[] = [];
-            if (execution) {
-              stepResults = await db.query.stepResultsTable.findMany({
-                where: eq(stepResultsTable.executionId, execution.id),
-              });
-            }
+        const [allSteps, allExecutions] = await Promise.all([
+          tcIds.length > 0
+            ? db.query.testStepsTable.findMany({
+                where: (ts, { inArray }) => inArray(ts.testCaseId, tcIds),
+                orderBy: (ts, { asc }) => asc(ts.stepNumber),
+              })
+            : Promise.resolve([] as any[]),
+          tcIds.length > 0
+            ? db.query.executionsTable.findMany({
+                where: (e, { and, eq, inArray }) =>
+                  and(inArray(e.testCaseId, tcIds), eq(e.testRunId, testRunId)),
+                orderBy: (e, { desc }) => desc(e.executedAt),
+              })
+            : Promise.resolve([] as any[]),
+        ]);
 
-// Fetch step result attachments
-             const stepResultAttachments = stepResults.length > 0
-               ? await db.query.attachmentsTable.findMany({
-                   where: and(
-                     eq(attachmentsTable.entityType, "step_result"),
-                     inArray(
-                       attachmentsTable.entityId,
-                       stepResults.map((sr) => sr.id)
-                     )
-                   ),
-                 })
-               : [];
+        const stepIds = allSteps.map((s) => s.id);
+        const execIds = allExecutions.map((e) => e.id);
 
-             const steps = await db.query.testStepsTable.findMany({
-               where: eq(testStepsTable.testCaseId, tc.id),
-               orderBy: testStepsTable.stepNumber,
-             });
+        const [allStepAttachments, allStepResults] = await Promise.all([
+          stepIds.length > 0
+            ? db.query.attachmentsTable.findMany({
+                where: (a, { and, eq, inArray }) =>
+                  and(eq(a.entityType, "test_step"), inArray(a.entityId, stepIds)),
+              })
+            : Promise.resolve([] as any[]),
+          execIds.length > 0
+            ? db.query.stepResultsTable.findMany({
+                where: (sr, { inArray }) => inArray(sr.executionId, execIds),
+              })
+            : Promise.resolve([] as any[]),
+        ]);
 
-             // Fetch attachments for each test step
-             const stepsWithAttachments = await Promise.all(
-               steps.map(async (s) => {
-                 const stepAttachments = await db.query.attachmentsTable.findMany({
-                   where: and(
-                     eq(attachmentsTable.entityId, s.id),
-                     eq(attachmentsTable.entityType, "test_step")
-                   ),
-                 });
-                 return {
-                   ...s,
-                   attachments: stepAttachments.map((a) => ({
-                     ...a,
-                     createdAt: a.createdAt.toISOString(),
-                   })),
-                 };
-               })
-             );
+        const srIds = allStepResults.map((sr) => sr.id);
+        const allStepResultAttachments =
+          srIds.length > 0
+            ? await db.query.attachmentsTable.findMany({
+                where: (a, { and, eq, inArray }) =>
+                  and(eq(a.entityType, "step_result"), inArray(a.entityId, srIds)),
+              })
+            : [];
 
-             return {
-               ...tc,
-               execution,
-               steps: stepsWithAttachments.map((s) => {
-                 const sr = stepResults.find((r) => r.stepId === s.id);
-                 if (!sr) return s;
-                 // Fetch attachments for step result
-                 const resultAttachments = stepResultAttachments
-                   .filter((a) => a.entityId === sr.id)
-                   .map((a) => ({ ...a, createdAt: a.createdAt.toISOString() }));
-                 return {
-                   ...s,
-                   result: { ...sr, attachments: resultAttachments },
-                 };
-               }),
-             };
-          })
-        );
+        const testCasesWithDetails = testCases.map((tc) => {
+          // Get the latest execution for this test case
+          const execution = allExecutions.find((e) => e.testCaseId === tc.id);
+          const steps = allSteps.filter((s) => s.testCaseId === tc.id);
+
+          return {
+            ...tc,
+            execution,
+            steps: steps.map((s) => {
+              const stepAttachments = allStepAttachments
+                .filter((a) => a.entityId === s.id)
+                .map((a) => ({ ...a, createdAt: a.createdAt.toISOString() }));
+
+              const sr = execution ? allStepResults.find((r) => r.executionId === execution.id && r.stepId === s.id) : null;
+
+              let result = null;
+              if (sr) {
+                const resultAttachments = allStepResultAttachments
+                  .filter((a) => a.entityId === sr.id)
+                  .map((a) => ({ ...a, createdAt: a.createdAt.toISOString() }));
+                result = {
+                  ...sr,
+                  recordedAt: sr.recordedAt.toISOString(),
+                  attachments: resultAttachments
+                };
+              }
+
+              return {
+                ...s,
+                createdAt: s.createdAt.toISOString(),
+                attachments: stepAttachments,
+                result,
+              };
+            }),
+          };
+        });
 
         return {
           ...uc,
-          testCases: testCasesWithExecutions
+          testCases: testCasesWithDetails,
         };
       })
     );

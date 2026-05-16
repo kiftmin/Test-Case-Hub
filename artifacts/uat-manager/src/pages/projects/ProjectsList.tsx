@@ -79,6 +79,11 @@ export default function ProjectsList() {
                       <Badge variant="secondary" className="font-mono text-xs">
                         {project.projectCode}
                       </Badge>
+                      {(project as any).isSignedOff === 1 && (
+                        <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100 text-[10px] font-bold uppercase py-0 px-1.5 h-4">
+                          Signed Off
+                        </Badge>
+                      )}
                       <span className="text-xs text-muted-foreground truncate max-w-[120px]">
                         {project.moduleName}
                       </span>

@@ -12,9 +12,10 @@ import { StepAttachments } from "./StepAttachments";
 
 interface TestCaseEditorProps {
   testCaseId: number;
+  readOnly?: boolean;
 }
 
-export function TestCaseEditor({ testCaseId }: TestCaseEditorProps) {
+export function TestCaseEditor({ testCaseId, readOnly }: TestCaseEditorProps) {
   const queryClient = useQueryClient();
   const { data: steps = [], isLoading } = useListTestSteps(testCaseId, {
     query: { enabled: !!testCaseId, queryKey: getListTestStepsQueryKey(testCaseId) }
@@ -118,9 +119,11 @@ export function TestCaseEditor({ testCaseId }: TestCaseEditorProps) {
     <div className="flex flex-col h-full">
       <div className="p-4 border-b bg-muted/10 flex justify-between items-center">
         <h3 className="font-semibold text-lg">Test Steps</h3>
-        <Button variant="outline" size="sm" onClick={() => setBulkMode(!bulkMode)}>
-          {bulkMode ? "Single Entry" : "Bulk Add"}
-        </Button>
+        {!readOnly && (
+          <Button variant="outline" size="sm" onClick={() => setBulkMode(!bulkMode)}>
+            {bulkMode ? "Single Entry" : "Bulk Add"}
+          </Button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -205,26 +208,31 @@ export function TestCaseEditor({ testCaseId }: TestCaseEditorProps) {
                 </>
               ) : (
                 <>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground"
-                    onClick={() => startEdit({ ...step, testData: step.testData ?? null })}
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="opacity-0 group-hover:opacity-100 text-destructive"
-                    onClick={() => handleDelete(step.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  {!readOnly && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground"
+                        onClick={() => startEdit({ ...step, testData: step.testData ?? null })}
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="opacity-0 group-hover:opacity-100 text-destructive"
+                        onClick={() => handleDelete(step.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </>
+                  )}
                   <StepAttachments 
                     stepId={step.id} 
                     testCaseId={testCaseId} 
                     attachments={step.attachments || []} 
+                    readOnly={readOnly}
                   />
                 </>
               )}
@@ -239,7 +247,8 @@ export function TestCaseEditor({ testCaseId }: TestCaseEditorProps) {
         )}
       </div>
 
-      <div className="p-4 border-t bg-muted/10">
+      {!readOnly && (
+        <div className="p-4 border-t bg-muted/10">
         {bulkMode ? (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
@@ -288,8 +297,9 @@ export function TestCaseEditor({ testCaseId }: TestCaseEditorProps) {
               <Plus className="w-4 h-4 mr-2" /> Add
             </Button>
           </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

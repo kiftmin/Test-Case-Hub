@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, formatDistanceToNow } from "date-fns";
+import { useGetProject, getGetProjectQueryKey } from "@workspace/api-client-react";
 
 const API_BASE = "/api";
 
@@ -165,6 +166,11 @@ export default function TestRunList() {
   const id = parseInt(projectId || "0", 10);
   const [showCreate, setShowCreate] = useState(false);
 
+  const { data: project } = useGetProject(id, {
+    query: { enabled: !!id, queryKey: getGetProjectQueryKey(id) }
+  });
+  const isSignedOff = (project as any)?.isSignedOff === 1;
+
   const { data: runs = [], isLoading } = useQuery<TestRun[]>({
     queryKey: ["test-runs", id],
     queryFn: async () => {
@@ -230,9 +236,11 @@ export default function TestRunList() {
         title="Test Runs"
         description="Schedule and manage test runs for this project."
         actions={
-          <Button size="sm" onClick={() => setShowCreate(true)}>
-            <Plus className="w-4 h-4 mr-2" /> New Test Run
-          </Button>
+          !isSignedOff && (
+            <Button size="sm" onClick={() => setShowCreate(true)}>
+              <Plus className="w-4 h-4 mr-2" /> New Test Run
+            </Button>
+          )
         }
       />
 
@@ -249,9 +257,11 @@ export default function TestRunList() {
           <p className="text-muted-foreground mt-1 text-sm">
             Create your first test run to get started.
           </p>
-          <Button size="sm" className="mt-4" onClick={() => setShowCreate(true)}>
-            <Plus className="w-4 h-4 mr-2" /> New Test Run
-          </Button>
+          {!isSignedOff && (
+            <Button size="sm" className="mt-4" onClick={() => setShowCreate(true)}>
+              <Plus className="w-4 h-4 mr-2" /> New Test Run
+            </Button>
+          )}
         </div>
       ) : (
         <div className="mt-8 space-y-8">

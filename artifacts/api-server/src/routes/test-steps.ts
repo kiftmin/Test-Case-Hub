@@ -15,7 +15,7 @@ async function stepsWithAttachments(steps: typeof testStepsTable.$inferSelect[])
         ...step,
         createdAt: step.createdAt.toISOString(),
         attachments: attachments
-          .filter((a) => a.entityType === "step")
+          .filter((a) => a.entityType === "test_step")
           .map((a) => ({ ...a, createdAt: a.createdAt.toISOString() })),
       };
     })
@@ -153,7 +153,7 @@ router.put("/steps/:stepId", async (req, res) => {
       ...updated,
       createdAt: updated.createdAt.toISOString(),
       attachments: attachments
-        .filter((a) => a.entityType === "step")
+        .filter((a) => a.entityType === "test_step")
         .map((a) => ({ ...a, createdAt: a.createdAt.toISOString() })),
     });
   } catch (err) {
