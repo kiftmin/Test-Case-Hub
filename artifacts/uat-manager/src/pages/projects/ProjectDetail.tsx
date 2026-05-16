@@ -1,7 +1,16 @@
 import { useState } from "react";
 import { Link, useParams } from "wouter";
 import { getAuthUser } from "@/lib/auth";
-import { useGetProject, getGetProjectQueryKey } from "@workspace/api-client-react";
+import {
+  useGetProject,
+  getGetProjectQueryKey,
+  useListProjectUsers,
+  getListProjectUsersQueryKey,
+  useListTestRuns,
+  getListTestRunsQueryKey,
+  useGetTestRunFullReport,
+  getGetTestRunFullReportQueryKey
+} from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -16,7 +25,6 @@ import {
 import { UseCaseTree } from "@/components/projects/UseCaseTree";
 import { TestCaseEditor } from "@/components/projects/TestCaseEditor";
 import { Card } from "@/components/ui/card";
-import { getAuthUser } from "@/lib/auth";
 import { SignOffDialog } from "@/components/projects/SignOffDialog";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -27,7 +35,6 @@ export default function ProjectDetail() {
   const { projectId } = useParams();
   const user = getAuthUser();
   const id = parseInt(projectId || "0", 10);
-  const user = getAuthUser();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
