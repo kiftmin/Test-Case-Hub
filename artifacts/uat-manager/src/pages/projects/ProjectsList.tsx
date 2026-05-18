@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useListProjects } from "@workspace/api-client-react";
+import { getAuthUser } from "@/lib/auth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,8 @@ import { format } from "date-fns";
 export default function ProjectsList() {
   const [search, setSearch] = useState("");
   const { data: projects, isLoading } = useListProjects();
+  const user = getAuthUser();
+  const isAdmin = user?.role === "ADMIN";
 
   const filteredProjects = projects?.filter(p => 
     p.name.toLowerCase().includes(search.toLowerCase()) || 
@@ -25,14 +28,14 @@ export default function ProjectsList() {
       <PageHeader 
         title="Projects" 
         description="Manage your UAT projects and test suites."
-        actions={
+        actions={isAdmin && (
           <Link href="/projects/new">
             <Button>
               <Plus className="w-4 h-4 mr-2" />
               New Project
             </Button>
           </Link>
-        }
+        )}
       />
 
       <div className="mb-6 relative">
@@ -59,9 +62,11 @@ export default function ProjectsList() {
           <FolderKanban className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-medium">No projects found</h3>
           <p className="text-muted-foreground mt-1 mb-4">Get started by creating your first test project.</p>
-          <Link href="/projects/new">
-            <Button variant="outline">Create Project</Button>
-          </Link>
+          {isAdmin && (
+            <Link href="/projects/new">
+              <Button variant="outline">Create Project</Button>
+            </Link>
+          )}
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

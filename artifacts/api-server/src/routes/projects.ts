@@ -15,7 +15,7 @@ function todayStr(): string {
   return new Date().toISOString().split("T")[0];
 }
 
-async function buildProjectDetail(projectId: number) {
+async function buildProjectDetail(projectId: number, userRole?: string) {
   const project = await db.query.projectsTable.findFirst({
     where: eq(projectsTable.id, projectId),
   });
@@ -71,6 +71,7 @@ async function buildProjectDetail(projectId: number) {
   // Manual assembly
   const result = {
     ...project,
+    signOffData: userRole === "TESTER" ? null : project.signOffData,
     createdAt: project.createdAt.toISOString(),
     updatedAt: project.updatedAt.toISOString(),
     useCases: useCases.map(uc => {
@@ -114,11 +115,30 @@ async function buildProjectDetail(projectId: number) {
   return result;
 }
 
-router.get("/projects", async (req, res) => {
+router.get("/projects", authenticate, async (req, res) => {
   try {
-    const projects = await db.query.projectsTable.findMany({
-      orderBy: desc(projectsTable.updatedAt),
-    });
+    let projects: any[];
+    if (req.user?.role === "ADMIN") {
+      projects = await db.query.projectsTable.findMany({
+        orderBy: desc(projectsTable.updatedAt),
+      });
+    } else {
+      const userId = req.user!.userId;
+      const assignments = await db.query.projectAssignmentsTable.findMany({
+        where: eq(projectAssignmentsTable.userId, userId),
+      });
+      const projectIds = assignments.map(a => a.projectId);
+
+      if (projectIds.length === 0) {
+        projects = [];
+      } else {
+        projects = await db.query.projectsTable.findMany({
+          where: (p, { inArray }) => inArray(p.id, projectIds),
+          orderBy: desc(projectsTable.updatedAt),
+        });
+      }
+    }
+
     res.json(
       projects.map((p) => ({
         ...p,
@@ -132,7 +152,7 @@ router.get("/projects", async (req, res) => {
   }
 });
 
-router.post("/projects", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
+router.post("/projects", authenticate, authorize(['ADMIN']), async (req, res) => {
   try {
     const body = CreateProjectBody.parse(req.body);
     const projectCode = generateProjectCode();
@@ -163,14 +183,26 @@ router.post("/projects", authenticate, authorize(['ADMIN', 'AUTHOR']), async (re
   }
 });
 
-router.get("/projects/code/:projectCode", async (req, res) => {
+router.get("/projects/code/:projectCode", authenticate, async (req, res) => {
   try {
+    const projectCode = req.params.projectCode as string;
     const project = await db.query.projectsTable.findFirst({
-      where: eq(projectsTable.projectCode, req.params.projectCode),
+      where: eq(projectsTable.projectCode, projectCode),
     });
     if (!project) return res.status(404).json({ error: "Project not found" });
 
-    const detail = await buildProjectDetail(project.id);
+    // Check visibility
+    if (req.user?.role !== "ADMIN") {
+      const assignment = await db.query.projectAssignmentsTable.findFirst({
+        where: and(
+          eq(projectAssignmentsTable.projectId, project.id),
+          eq(projectAssignmentsTable.userId, req.user!.userId)
+        )
+      });
+      if (!assignment) return res.status(403).json({ error: "You are not assigned to this project" });
+    }
+
+    const detail = await buildProjectDetail(project.id, req.user?.role);
     if (!detail) return res.status(404).json({ error: "Project not found" });
 
     res.json(detail);
@@ -180,12 +212,23 @@ router.get("/projects/code/:projectCode", async (req, res) => {
   }
 });
 
-router.get("/projects/:projectId", async (req, res) => {
+router.get("/projects/:projectId", authenticate, async (req, res) => {
   try {
-    const projectId = parseInt(req.params.projectId);
+    const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) return res.status(400).json({ error: "Invalid project ID" });
 
-    const detail = await buildProjectDetail(projectId);
+    // Check visibility
+    if (req.user?.role !== "ADMIN") {
+      const assignment = await db.query.projectAssignmentsTable.findFirst({
+        where: and(
+          eq(projectAssignmentsTable.projectId, projectId),
+          eq(projectAssignmentsTable.userId, req.user!.userId)
+        )
+      });
+      if (!assignment) return res.status(403).json({ error: "You are not assigned to this project" });
+    }
+
+    const detail = await buildProjectDetail(projectId, req.user?.role);
     if (!detail) return res.status(404).json({ error: "Project not found" });
 
     res.json(detail);

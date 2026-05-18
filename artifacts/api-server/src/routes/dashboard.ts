@@ -1,41 +1,96 @@
 import { Router } from "express";
-import { db, projectsTable, testCasesTable, executionsTable, useCasesTable, testStepsTable, stepResultsTable } from "@workspace/db";
-import { eq, desc, count, and, isNotNull, gte } from "drizzle-orm";
+import { db, projectsTable, testCasesTable, executionsTable, useCasesTable, testStepsTable, stepResultsTable, projectAssignmentsTable, usersTable } from "@workspace/db";
+import { eq, desc, count, and, isNotNull, gte, inArray } from "drizzle-orm";
+import { authenticate } from "../middlewares/auth";
 
 const router = Router();
 
-router.get("/dashboard/summary", async (req, res) => {
+router.get("/dashboard/summary", authenticate, async (req, res) => {
   try {
-    const [projectCount, testCaseCount, execCount] = await Promise.all([
-      db.select({ count: count() }).from(projectsTable),
-      db.select({ count: count() }).from(testCasesTable),
-      db.select({ count: count() }).from(executionsTable),
-    ]);
+    let projectIds: number[] | null = null;
 
-    // Use a more efficient pass rate query
-    const execStats = await db
-      .select({
-        total: count(),
-        passed: count(eq(executionsTable.status, "completed"))
-      })
-      .from(executionsTable);
+    if (req.user?.role !== "ADMIN") {
+      const assignments = await db.query.projectAssignmentsTable.findMany({
+        where: eq(projectAssignmentsTable.userId, req.user!.userId),
+      });
+      projectIds = assignments.map(a => a.projectId);
+      if (projectIds.length === 0) {
+        return res.json({
+          totalProjects: 0,
+          totalTestCases: 0,
+          totalExecutions: 0,
+          passRate: 0,
+          recentProjectsCount: 0,
+        });
+      }
+    }
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const queries: any[] = [];
+
+    if (projectIds) {
+      // Projects count
+      queries.push(db.select({ count: count() }).from(projectsTable).where(inArray(projectsTable.id, projectIds)));
+
+      // Test cases count - need to join with useCases
+      queries.push(
+        db.select({ count: count() })
+          .from(testCasesTable)
+          .innerJoin(useCasesTable, eq(testCasesTable.useCaseId, useCasesTable.id))
+          .where(inArray(useCasesTable.projectId, projectIds))
+      );
+
+      // Executions stats
+      queries.push(
+        db.select({
+          total: count(),
+          passed: count(eq(executionsTable.status, "completed"))
+        })
+        .from(executionsTable)
+        .innerJoin(testCasesTable, eq(executionsTable.testCaseId, testCasesTable.id))
+        .innerJoin(useCasesTable, eq(testCasesTable.useCaseId, useCasesTable.id))
+        .where(inArray(useCasesTable.projectId, projectIds))
+      );
+
+      // Recent projects
+      queries.push(
+        db.select({ count: count() })
+          .from(projectsTable)
+          .where(and(
+            inArray(projectsTable.id, projectIds),
+            gte(projectsTable.createdAt, thirtyDaysAgo)
+          ))
+      );
+    } else {
+      queries.push(db.select({ count: count() }).from(projectsTable));
+      queries.push(db.select({ count: count() }).from(testCasesTable));
+      queries.push(
+        db.select({
+          total: count(),
+          passed: count(eq(executionsTable.status, "completed"))
+        })
+        .from(executionsTable)
+      );
+      queries.push(
+        db.select({ count: count() })
+          .from(projectsTable)
+          .where(gte(projectsTable.createdAt, thirtyDaysAgo))
+      );
+    }
+
+    const [pCount, tcCount, execStats, recentProjects] = await Promise.all(queries);
 
     const passed = Number(execStats[0]?.passed ?? 0);
     const total = Number(execStats[0]?.total ?? 0);
     const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
 
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const [recentProjects] = await db
-      .select({ count: count() })
-      .from(projectsTable)
-      .where(gte(projectsTable.createdAt, thirtyDaysAgo));
-
     res.json({
-      totalProjects: Number(projectCount[0]?.count ?? 0),
-      totalTestCases: Number(testCaseCount[0]?.count ?? 0),
+      totalProjects: Number(pCount[0]?.count ?? 0),
+      totalTestCases: Number(tcCount[0]?.count ?? 0),
       totalExecutions: total,
       passRate,
-      recentProjectsCount: Number(recentProjects?.count ?? 0),
+      recentProjectsCount: Number(recentProjects[0]?.count ?? 0),
     });
   } catch (err) {
     req.log.error({ err }, "Failed to get dashboard summary");
@@ -43,10 +98,21 @@ router.get("/dashboard/summary", async (req, res) => {
   }
 });
 
-router.get("/dashboard/projects/:projectId/stats", async (req, res) => {
+router.get("/dashboard/projects/:projectId/stats", authenticate, async (req, res) => {
   try {
-    const projectId = parseInt(req.params.projectId);
+    const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) return res.status(400).json({ error: "Invalid project ID" });
+
+    // Check visibility
+    if (req.user?.role !== "ADMIN") {
+      const assignment = await db.query.projectAssignmentsTable.findFirst({
+        where: and(
+          eq(projectAssignmentsTable.projectId, projectId),
+          eq(projectAssignmentsTable.userId, req.user!.userId)
+        )
+      });
+      if (!assignment) return res.status(403).json({ error: "You are not assigned to this project" });
+    }
 
     const project = await db.query.projectsTable.findFirst({
       where: eq(projectsTable.id, projectId),
@@ -132,12 +198,49 @@ router.get("/dashboard/projects/:projectId/stats", async (req, res) => {
   }
 });
 
-router.get("/dashboard/recent-activity", async (req, res) => {
+router.get("/dashboard/recent-activity", authenticate, async (req, res) => {
   try {
-    const recentExecs = await db.query.executionsTable.findMany({
-      orderBy: desc(executionsTable.executedAt),
-      limit: 20,
-    });
+    let recentExecs: any[];
+    if (req.user?.role === "ADMIN") {
+      recentExecs = await db.query.executionsTable.findMany({
+        orderBy: desc(executionsTable.executedAt),
+        limit: 20,
+      });
+    } else if (req.user?.role === "TESTER") {
+      // Tester sees only their own executions
+      const user = await db.query.usersTable.findFirst({
+        where: eq(usersTable.id, req.user!.userId),
+      });
+      if (!user) return res.json([]);
+
+      recentExecs = await db.query.executionsTable.findMany({
+        where: eq(executionsTable.testerName, user.name),
+        orderBy: desc(executionsTable.executedAt),
+        limit: 20,
+      });
+    } else {
+      // AUTHOR: View executions for projects they are assigned to
+      const assignments = await db.query.projectAssignmentsTable.findMany({
+        where: eq(projectAssignmentsTable.userId, req.user!.userId),
+      });
+      const projectIds = assignments.map(a => a.projectId);
+
+      if (projectIds.length === 0) {
+        recentExecs = [];
+      } else {
+        recentExecs = await db.select({
+          execution: executionsTable
+        })
+        .from(executionsTable)
+        .innerJoin(testCasesTable, eq(executionsTable.testCaseId, testCasesTable.id))
+        .innerJoin(useCasesTable, eq(testCasesTable.useCaseId, useCasesTable.id))
+        .where(inArray(useCasesTable.projectId, projectIds))
+        .orderBy(desc(executionsTable.executedAt))
+        .limit(20);
+
+        recentExecs = recentExecs.map(r => r.execution);
+      }
+    }
 
     if (recentExecs.length === 0) {
       return res.json([]);

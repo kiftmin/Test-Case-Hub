@@ -11,6 +11,7 @@ import { db,
   usersTable,
   projectsTable,
   attachmentsTable,
+  projectAssignmentsTable,
 } from "@workspace/db";
 import { eq, desc, and, inArray } from "drizzle-orm";
 import { z } from "zod";
@@ -127,15 +128,50 @@ async function buildTestRunDetail(testRunId: number) {
  * GET /projects/:projectId/test-runs
  * List all test runs for a project (newest first).
  */
-router.get("/projects/:projectId/test-runs", async (req, res) => {
+router.get("/projects/:projectId/test-runs", authenticate, async (req, res) => {
   try {
-    const projectId = parseInt(req.params.projectId);
+    const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) return res.status(400).json({ error: "Invalid project ID" });
 
-    const runs = await db.query.testRunsTable.findMany({
-      where: eq(testRunsTable.projectId, projectId),
-      orderBy: desc(testRunsTable.scheduledAt),
-    });
+    let runs: any[];
+    if (req.user?.role === "ADMIN") {
+      runs = await db.query.testRunsTable.findMany({
+        where: eq(testRunsTable.projectId, projectId),
+        orderBy: desc(testRunsTable.scheduledAt),
+      });
+    } else if (req.user?.role === "AUTHOR") {
+      // Authors see runs for assigned projects
+      const assignment = await db.query.projectAssignmentsTable.findFirst({
+        where: and(
+          eq(projectAssignmentsTable.projectId, projectId),
+          eq(projectAssignmentsTable.userId, req.user!.userId)
+        )
+      });
+      if (!assignment) return res.status(403).json({ error: "You are not assigned to this project" });
+
+      runs = await db.query.testRunsTable.findMany({
+        where: eq(testRunsTable.projectId, projectId),
+        orderBy: desc(testRunsTable.scheduledAt),
+      });
+    } else {
+      // Testers see only runs where they have at least one use case assignment
+      const myRunAssignments = await db.query.testRunUseCasesTable.findMany({
+        where: eq(testRunUseCasesTable.assignedTesterId, req.user!.userId),
+      });
+      const runIds = [...new Set(myRunAssignments.map(a => a.testRunId))];
+
+      if (runIds.length === 0) {
+        runs = [];
+      } else {
+        runs = await db.query.testRunsTable.findMany({
+          where: (tr, { and, eq, inArray }) => and(
+            eq(tr.projectId, projectId),
+            inArray(tr.id, runIds)
+          ),
+          orderBy: desc(testRunsTable.scheduledAt),
+        });
+      }
+    }
 
     res.json(
       runs.map((r) => ({
@@ -213,10 +249,37 @@ router.post("/projects/:projectId/test-runs", authenticate, authorize(['ADMIN', 
  * GET /test-runs/:testRunId
  * Get full detail of a test run including its use cases and assignments.
  */
-router.get("/test-runs/:testRunId", async (req, res) => {
+router.get("/test-runs/:testRunId", authenticate, async (req, res) => {
   try {
-    const testRunId = parseInt(req.params.testRunId);
+    const testRunId = parseInt(req.params.testRunId as string);
     if (isNaN(testRunId)) return res.status(400).json({ error: "Invalid test run ID" });
+
+    const run = await db.query.testRunsTable.findFirst({
+      where: eq(testRunsTable.id, testRunId),
+    });
+    if (!run) return res.status(404).json({ error: "Test run not found" });
+
+    // Check visibility
+    if (req.user?.role !== "ADMIN") {
+      if (req.user?.role === "AUTHOR") {
+        const assignment = await db.query.projectAssignmentsTable.findFirst({
+          where: and(
+            eq(projectAssignmentsTable.projectId, run.projectId),
+            eq(projectAssignmentsTable.userId, req.user!.userId)
+          )
+        });
+        if (!assignment) return res.status(403).json({ error: "You are not assigned to this project" });
+      } else {
+        // Tester
+        const assignment = await db.query.testRunUseCasesTable.findFirst({
+          where: and(
+            eq(testRunUseCasesTable.testRunId, testRunId),
+            eq(testRunUseCasesTable.assignedTesterId, req.user!.userId)
+          )
+        });
+        if (!assignment) return res.status(403).json({ error: "You are not assigned to any use case in this test run" });
+      }
+    }
 
     const detail = await buildTestRunDetail(testRunId);
     if (!detail) return res.status(404).json({ error: "Test run not found" });
@@ -585,10 +648,21 @@ router.get("/dashboard/tester/:userId/test-runs", async (req, res) => {
  * GET /projects/:projectId/test-runs/analytics
  * Returns a summary of all completed test runs for a project.
  */
-router.get("/projects/:projectId/test-runs/analytics", async (req, res) => {
+router.get("/projects/:projectId/test-runs/analytics", authenticate, async (req, res) => {
   try {
-    const projectId = parseInt(req.params.projectId);
+    const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) return res.status(400).json({ error: "Invalid project ID" });
+
+    // Check visibility
+    if (req.user?.role !== "ADMIN") {
+      const assignment = await db.query.projectAssignmentsTable.findFirst({
+        where: and(
+          eq(projectAssignmentsTable.projectId, projectId),
+          eq(projectAssignmentsTable.userId, req.user!.userId)
+        )
+      });
+      if (!assignment) return res.status(403).json({ error: "You are not assigned to this project" });
+    }
 
     const runs = await db.query.testRunsTable.findMany({
       where: and(
