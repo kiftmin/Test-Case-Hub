@@ -121,7 +121,7 @@ export function TestCaseEditor({ testCaseId, readOnly }: TestCaseEditorProps) {
     <div className="flex flex-col h-full">
       <div className="p-4 border-b bg-muted/10 flex justify-between items-center">
         <h3 className="font-semibold text-lg">Test Steps</h3>
-        {user?.role !== 'TESTER' && (
+        {!readOnly && (
           <Button variant="outline" size="sm" onClick={() => setBulkMode(!bulkMode)}>
             {bulkMode ? "Single Entry" : "Bulk Add"}
           </Button>
@@ -210,7 +210,7 @@ export function TestCaseEditor({ testCaseId, readOnly }: TestCaseEditorProps) {
                 </>
               ) : (
                 <>
-                  {user?.role !== 'TESTER' && (
+                  {!readOnly && (
                     <>
                       <Button
                         variant="ghost"
@@ -249,7 +249,7 @@ export function TestCaseEditor({ testCaseId, readOnly }: TestCaseEditorProps) {
         )}
       </div>
 
-      {user?.role !== 'TESTER' && (
+      {!readOnly && (
       <div className="p-4 border-t bg-muted/10">
         {bulkMode ? (
           <div className="space-y-4">
