@@ -22,6 +22,11 @@ declare global {
 }
 
 export const authenticate = (req: AuthRequest, res: Response, next: NextFunction) => {
+  // Allow login and health check routes
+  if (req.path === "/auth/login" || req.path === "/health") {
+    return next();
+  }
+
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ error: "Missing or invalid authorization header" });

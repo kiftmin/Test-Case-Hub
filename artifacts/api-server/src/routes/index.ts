@@ -17,6 +17,8 @@ import { authenticate } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
+router.use(authenticate);
+
 // Public routes
 router.use("/auth", authRouter);
 router.use("/health", healthRouter);
@@ -26,7 +28,6 @@ router.get("/", (req, res) => {
 });
 
 // Authenticated routes
-router.use(authenticate);
 
 router.use(projectsRouter);
 router.use(useCasesRouter);
