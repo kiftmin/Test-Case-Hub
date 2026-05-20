@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, FolderKanban, PlaySquare, UserPlus, Bug, AlertTriangle } from "lucide-react";
+import { LayoutDashboard, FolderKanban, PlaySquare, UserPlus, Bug, AlertTriangle, Users, ChevronDown, ChevronRight, CalendarClock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAuthUser } from "@/lib/auth";
 import { roleBadgeClass, roleLabel } from "@/lib/role-utils";
@@ -8,20 +9,20 @@ export function Sidebar() {
   const [location] = useLocation();
   const user = getAuthUser();
 
-  // Extract projectId from URL for project-context nav items
   const projectMatch = location.match(/\/projects\/(\d+)/);
   const projectId = projectMatch ? projectMatch[1] : null;
 
-  const navigation = [
-    { name: "Dashboard", href: "/", icon: LayoutDashboard },
-    { name: "Projects", href: "/projects", icon: FolderKanban },
-    ...(projectId ? [
-      { name: "Defects", href: `/projects/${projectId}/test-runs`, icon: AlertTriangle },
-      { name: "Bugs", href: `/projects/${projectId}/bugs`, icon: Bug },
-    ] : []),
-    ...(user?.role === 'ADMIN' ? [{ name: "Users", href: "/users", icon: UserPlus }] : []),
-    { name: "Tester Portal", href: "/tester", icon: PlaySquare },
-  ];
+  // Determine project role for current user via the URL context
+  // We don't have assignments here, so use global role as proxy
+  const isAdmin = user?.role === "ADMIN";
+
+  // Auto-expand Projects submenu when on a project page
+  const [projectsOpen, setProjectsOpen] = useState(!!projectId);
+
+  const isActive = (href: string) => {
+    if (href === "/") return location === "/";
+    return location.startsWith(href);
+  };
 
   return (
     <div className="flex h-screen w-64 flex-col bg-sidebar border-r border-sidebar-border">
@@ -36,30 +37,136 @@ export function Sidebar() {
 
       <div className="flex flex-1 flex-col overflow-y-auto">
         <nav className="flex-1 px-4 py-6 space-y-1">
-          {navigation.map((item) => {
-            const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={cn(
-                  "group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                )}
-              >
-                <item.icon
+          {/* Dashboard */}
+          <Link
+            href="/"
+            className={cn(
+              "group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              isActive("/")
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            )}
+          >
+            <LayoutDashboard className="h-5 w-5 shrink-0 text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground" />
+            Dashboard
+          </Link>
+
+          {/* Projects — collapsible group */}
+          <div>
+            <button
+              onClick={() => setProjectsOpen(!projectsOpen)}
+              className={cn(
+                "w-full group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                isActive("/projects")
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              )}
+            >
+              <FolderKanban className="h-5 w-5 shrink-0 text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground" />
+              <span className="flex-1 text-left">Projects</span>
+              {projectsOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+            </button>
+
+            {projectsOpen && (
+              <div className="ml-4 mt-1 space-y-1 pl-3 border-l border-sidebar-border">
+                <Link
+                  href="/projects"
                   className={cn(
-                    "h-5 w-5 shrink-0",
-                    isActive ? "text-sidebar-accent-foreground" : "text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground"
+                    "group flex items-center gap-3 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                    location === "/projects"
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   )}
-                  aria-hidden="true"
-                />
-                {item.name}
-              </Link>
-            );
-          })}
+                >
+                  All Projects
+                </Link>
+                {projectId && (
+                  <>
+                    <Link
+                      href={`/projects/${projectId}`}
+                      className={cn(
+                        "group flex items-center gap-3 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                        location === `/projects/${projectId}`
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                          : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      )}
+                    >
+                      <FolderKanban className="w-3.5 h-3.5 shrink-0 text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground" />
+                      Project Detail
+                    </Link>
+                    <Link
+                      href={`/projects/${projectId}/test-runs`}
+                      className={cn(
+                        "group flex items-center gap-3 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                        location.includes("/test-runs")
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                          : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      )}
+                    >
+                      <CalendarClock className="w-3.5 h-3.5 shrink-0 text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground" />
+                      Test Runs
+                    </Link>
+                    <Link
+                      href={`/projects/${projectId}/bugs`}
+                      className={cn(
+                        "group flex items-center gap-3 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                        location.includes("/bugs")
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                          : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      )}
+                    >
+                      <Bug className="w-3.5 h-3.5 shrink-0 text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground" />
+                      Bugs
+                    </Link>
+                    {(isAdmin) && (
+                      <Link
+                        href={`/projects/${projectId}/users`}
+                        className={cn(
+                          "group flex items-center gap-3 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                          location.includes("/users")
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                            : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                        )}
+                      >
+                        <Users className="w-3.5 h-3.5 shrink-0 text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground" />
+                        Manage Users
+                      </Link>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Global Users link (Admin only) */}
+          {isAdmin && (
+            <Link
+              href="/users"
+              className={cn(
+                "group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                isActive("/users")
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              )}
+            >
+              <UserPlus className="h-5 w-5 shrink-0 text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground" />
+              User Management
+            </Link>
+          )}
+
+          {/* Tester Portal */}
+          <Link
+            href="/tester"
+            className={cn(
+              "group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              isActive("/tester")
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            )}
+          >
+            <PlaySquare className="h-5 w-5 shrink-0 text-sidebar-foreground/50 group-hover:text-sidebar-accent-foreground" />
+            Tester Portal
+          </Link>
         </nav>
       </div>
 

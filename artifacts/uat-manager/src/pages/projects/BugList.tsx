@@ -178,7 +178,7 @@ export default function BugList() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value=" ">All</SelectItem>
-                  {allUsers?.map(u => (
+                  {developers.map(u => (
                     <SelectItem key={u.id} value={u.id.toString()}>{u.name}</SelectItem>
                   ))}
                 </SelectContent>
