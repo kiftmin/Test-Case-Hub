@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: users
+    description: User management operations
   - name: projects
     description: Test project operations
   - name: use-cases
@@ -22,10 +26,18 @@ tags:
     description: Test execution operations
   - name: attachments
     description: Attachment operations
+  - name: upload
+    description: File upload operations
   - name: dashboard
     description: Dashboard and reporting operations
   - name: test-runs
     description: Test run operations
+  - name: defects
+    description: Defect operations
+  - name: bugs
+    description: Bug operations
+  - name: team-discussions
+    description: Team discussion operations
 
 paths:
   /healthz:
@@ -130,6 +142,55 @@ paths:
       responses:
         "204":
           description: Deleted
+
+  /projects/{projectId}/sign-off:
+    post:
+      operationId: signOffProject
+      tags: [projects]
+      summary: Sign off a project (dual signature)
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignOffBody"
+      responses:
+        "200":
+          description: Sign-off registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  signOffData:
+                    type: object
+
+  /projects/{projectId}/sign-off-status:
+    get:
+      operationId: getSignOffStatus
+      tags: [projects]
+      summary: Get current sign-off status
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Sign-off status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignOffStatus"
 
   /projects/code/{projectCode}:
     get:
@@ -569,6 +630,61 @@ paths:
         "204":
           description: Deleted
 
+  /attachments/{entityType}/{entityId}:
+    get:
+      operationId: listAttachments
+      tags: [attachments]
+      summary: List all attachments for an entity
+      parameters:
+        - name: entityType
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of attachments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Attachment"
+
+  /upload:
+    post:
+      operationId: uploadFile
+      tags: [upload]
+      summary: Upload a file
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  description: The file to upload (binary)
+                  type: string
+                entityType:
+                  type: string
+                entityId:
+                  type: integer
+                field:
+                  type: string
+      responses:
+        "201":
+          description: File uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Attachment"
+
   # ── Dashboard ─────────────────────────────────────────────────────────────
   /dashboard/summary:
     get:
@@ -617,6 +733,27 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ActivityItem"
+
+  /dashboard/developer/{userId}/bugs:
+    get:
+      operationId: getDeveloperBugs
+      tags: [dashboard]
+      summary: List bugs assigned to a developer
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Developer bug list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DeveloperBugItem"
 
   # ── Test Runs ─────────────────────────────────────────────────────────────
   /projects/{projectId}/test-runs:
@@ -916,6 +1053,27 @@ paths:
         "401":
           description: Invalid credentials
 
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new user (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRegistrationBody"
+      responses:
+        "201":
+          description: Created user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "409":
+          description: Duplicate username
+
   # ── Users & Assignments ───────────────────────────────────────────────────
   /users:
     get:
@@ -948,6 +1106,44 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/User"
+
+  /users/{userId}:
+    put:
+      operationId: updateUser
+      tags: [users]
+      summary: Update user details (Admin only)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserBody"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      summary: Delete a user (Admin only)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
 
   /projects/{projectId}/users:
     get:
@@ -1034,6 +1230,475 @@ paths:
                 items:
                   $ref: "#/components/schemas/TestProject"
 
+  # ── Defects ────────────────────────────────────────────────────────────────
+  /test-runs/{testRunId}/defects:
+    get:
+      operationId: listDefects
+      tags: [defects]
+      summary: List all defects for a test run
+      parameters:
+        - name: testRunId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of defects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Defect"
+
+  /defects/{defectId}:
+    get:
+      operationId: getDefect
+      tags: [defects]
+      summary: Get a single defect with full detail
+      parameters:
+        - name: defectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Defect detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Defect"
+
+  /defects/{defectId}/flag-bug:
+    patch:
+      operationId: flagDefectAsBug
+      tags: [defects]
+      summary: Flag a defect as a bug (Test Lead/Admin)
+      parameters:
+        - name: defectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Defect flagged as bug
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Defect"
+
+  /defects/{defectId}/flag-retest:
+    patch:
+      operationId: flagDefectForRetest
+      tags: [defects]
+      summary: Flag a defect for retesting
+      parameters:
+        - name: defectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FlagRetestBody"
+      responses:
+        "200":
+          description: Defect flagged for retest
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Defect"
+
+  /defects/{defectId}/flag-accepted-by-business:
+    patch:
+      operationId: flagDefectAcceptedByBusiness
+      tags: [defects]
+      summary: Flag a defect as accepted by business (Test Lead/Admin)
+      parameters:
+        - name: defectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Defect accepted by business
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Defect"
+
+  /defects/{defectId}/business-accept:
+    patch:
+      operationId: businessAcceptDefect
+      tags: [defects]
+      summary: Business Owner accepts a defect
+      parameters:
+        - name: defectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BusinessAcceptBody"
+      responses:
+        "200":
+          description: Defect accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Defect"
+
+  /defects/{defectId}/business-reject:
+    patch:
+      operationId: businessRejectDefect
+      tags: [defects]
+      summary: Business Owner rejects a defect
+      parameters:
+        - name: defectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BusinessRejectBody"
+      responses:
+        "200":
+          description: Defect rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Defect"
+
+  /defects/{defectId}/notes:
+    post:
+      operationId: addDefectNote
+      tags: [defects]
+      summary: Add a note to a defect
+      parameters:
+        - name: defectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDefectNoteBody"
+      responses:
+        "201":
+          description: Note added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DefectNote"
+
+  # ── Bugs ───────────────────────────────────────────────────────────────────
+  /projects/{projectId}/bugs:
+    get:
+      operationId: listBugs
+      tags: [bugs]
+      summary: List all bugs for a project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: developerId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: ticketNumber
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of bugs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Bug"
+
+  /bugs/{bugId}:
+    get:
+      operationId: getBug
+      tags: [bugs]
+      summary: Get a single bug with full detail
+      parameters:
+        - name: bugId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Bug detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bug"
+
+  /bugs/{bugId}/assign:
+    patch:
+      operationId: assignBug
+      tags: [bugs]
+      summary: Assign a bug to a developer
+      parameters:
+        - name: bugId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignBugBody"
+      responses:
+        "200":
+          description: Bug assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bug"
+
+  /bugs/{bugId}/status:
+    patch:
+      operationId: updateBugStatus
+      tags: [bugs]
+      summary: Update bug status
+      parameters:
+        - name: bugId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBugStatusBody"
+      responses:
+        "200":
+          description: Bug status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bug"
+
+  /bugs/{bugId}/notes:
+    patch:
+      operationId: updateBugNotes
+      tags: [bugs]
+      summary: Update developer notes on a bug
+      parameters:
+        - name: bugId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBugNotesBody"
+      responses:
+        "200":
+          description: Bug notes updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bug"
+
+  /bugs/{bugId}/reassign:
+    patch:
+      operationId: reassignBug
+      tags: [bugs]
+      summary: Reassign a bug to another developer
+      parameters:
+        - name: bugId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReassignBugBody"
+      responses:
+        "200":
+          description: Bug reassigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bug"
+
+  # ── Team Discussions ──────────────────────────────────────────────────────
+  /test-runs/{testRunId}/discussions:
+    post:
+      operationId: createDiscussion
+      tags: [team-discussions]
+      summary: Start a team discussion for a test run
+      parameters:
+        - name: testRunId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDiscussionBody"
+      responses:
+        "201":
+          description: Discussion created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamDiscussion"
+
+  /discussions/{discussionId}:
+    get:
+      operationId: getDiscussion
+      tags: [team-discussions]
+      summary: Get a team discussion with participants
+      parameters:
+        - name: discussionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Discussion detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamDiscussion"
+    patch:
+      operationId: endDiscussion
+      tags: [team-discussions]
+      summary: End a team discussion (Test Lead/Admin)
+      parameters:
+        - name: discussionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Discussion ended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamDiscussion"
+
+  /discussions/{discussionId}/participants:
+    post:
+      operationId: addParticipant
+      tags: [team-discussions]
+      summary: Add a participant to a discussion
+      parameters:
+        - name: discussionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddParticipantBody"
+      responses:
+        "201":
+          description: Participant added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamDiscussion"
+
+  /discussions/{discussionId}/participants/{userId}:
+    delete:
+      operationId: removeParticipant
+      tags: [team-discussions]
+      summary: Remove a participant from a discussion
+      parameters:
+        - name: discussionId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Participant removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamDiscussion"
+
+  /discussions/{discussionId}/defects/{defectId}:
+    get:
+      operationId: getDiscussionDefectDrilldown
+      tags: [team-discussions]
+      summary: Get full defect drill-down for a discussion
+      parameters:
+        - name: discussionId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: defectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Defect drill-down data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Defect"
+
 components:
   schemas:
     HealthStatus:
@@ -1060,6 +1725,9 @@ components:
           type: string
         testLink:
           type: string
+          nullable: true
+        testLeadId:
+          type: integer
           nullable: true
         version:
           type: integer
@@ -1100,6 +1768,9 @@ components:
           type: string
         testLink:
           type: string
+          nullable: true
+        testLeadId:
+          type: integer
           nullable: true
       required: [name, designedBy, moduleName, designDate]
 
@@ -1240,6 +1911,9 @@ components:
           type: string
         testRunId:
           type: integer
+          nullable: true
+        notes:
+          type: string
           nullable: true
       required: [testerName]
 
@@ -1540,7 +2214,7 @@ components:
           type: boolean
         status:
           type: string
-          enum: [pending, in_progress, passed, failed]
+          enum: [pending, in_progress, passed, failed, passed_by_agreement]
         createdAt:
           type: string
           format: date-time
@@ -1582,7 +2256,7 @@ components:
           type: boolean
         status:
           type: string
-          enum: [pending, in_progress, passed, failed]
+          enum: [pending, in_progress, passed, failed, passed_by_agreement]
 
     ReRunBody:
       type: object
@@ -1639,3 +2313,376 @@ components:
           type: integer
           nullable: true
       required: [id, name, scheduledAt, totalUseCases, passedUseCases, failedUseCases, freePassCount]
+
+    # ── New Auth / User Schemas ──────────────────────────────────────────────
+    CreateRegistrationBody:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [ADMIN, AUTHOR, USER]
+      required: [username, password, name, role]
+
+    UpdateUserBody:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [ADMIN, AUTHOR, USER]
+
+    # ── Sign-Off Schemas ─────────────────────────────────────────────────────
+    SignOffBody:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [TEST_LEAD, BUSINESS_OWNER]
+        note:
+          type: string
+      required: [role]
+
+    SignOffStatus:
+      type: object
+      properties:
+        isSignedOff:
+          type: boolean
+        testLeadSigned:
+          type: boolean
+        businessOwnerSigned:
+          type: boolean
+        signOffData:
+          type: object
+
+    # ── Defect Schemas ───────────────────────────────────────────────────────
+    Defect:
+      type: object
+      properties:
+        id:
+          type: integer
+        testRunId:
+          type: integer
+        testCaseId:
+          type: integer
+        executionId:
+          type: integer
+        testerNotes:
+          type: string
+          nullable: true
+        status:
+          type: string
+        retestReason:
+          type: string
+          nullable: true
+        acceptedByBusinessNote:
+          type: string
+          nullable: true
+        rejectionLog:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        testCase:
+          $ref: "#/components/schemas/TestCase"
+          nullable: true
+        execution:
+          $ref: "#/components/schemas/TestExecution"
+          nullable: true
+        notes:
+          type: array
+          items:
+            $ref: "#/components/schemas/DefectNote"
+      required: [id, testRunId, testCaseId, executionId, status, createdAt, updatedAt]
+
+    FlagRetestBody:
+      type: object
+      properties:
+        reason:
+          type: string
+      required: [reason]
+
+    BusinessAcceptBody:
+      type: object
+      properties:
+        note:
+          type: string
+      required: [note]
+
+    BusinessRejectBody:
+      type: object
+      properties:
+        reason:
+          type: string
+
+    CreateDefectNoteBody:
+      type: object
+      properties:
+        note:
+          type: string
+        discussionId:
+          type: integer
+          nullable: true
+      required: [note]
+
+    DefectNote:
+      type: object
+      properties:
+        id:
+          type: integer
+        defectId:
+          type: integer
+        discussionId:
+          type: integer
+          nullable: true
+        addedByUserId:
+          type: integer
+        note:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        addedByUser:
+          $ref: "#/components/schemas/User"
+          nullable: true
+      required: [id, defectId, addedByUserId, note, createdAt]
+
+    StatusAuditLogEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        entityType:
+          type: string
+        entityId:
+          type: integer
+        changedByUserId:
+          type: integer
+        fromStatus:
+          type: string
+        toStatus:
+          type: string
+        reason:
+          type: string
+          nullable: true
+        changedAt:
+          type: string
+          format: date-time
+        changedByUser:
+          $ref: "#/components/schemas/User"
+          nullable: true
+      required: [id, entityType, entityId, changedByUserId, fromStatus, toStatus, changedAt]
+
+    # ── Bug Schemas ──────────────────────────────────────────────────────────
+    Bug:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        defectId:
+          type: integer
+        bugNumber:
+          type: integer
+        supportTicketNumber:
+          type: string
+          nullable: true
+        assignedDeveloperId:
+          type: integer
+          nullable: true
+        status:
+          type: string
+        developerNotes:
+          type: string
+          nullable: true
+        failedToResolveReason:
+          type: string
+          nullable: true
+        openedAt:
+          type: string
+          format: date-time
+        assignedAt:
+          type: string
+          format: date-time
+          nullable: true
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        testAt:
+          type: string
+          format: date-time
+          nullable: true
+        failedToResolveAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        defect:
+          $ref: "#/components/schemas/Defect"
+          nullable: true
+        assignedDeveloper:
+          $ref: "#/components/schemas/User"
+          nullable: true
+        auditLog:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatusAuditLogEntry"
+      required: [id, projectId, defectId, bugNumber, status, openedAt, createdAt, updatedAt]
+
+    AssignBugBody:
+      type: object
+      properties:
+        developerId:
+          type: integer
+        supportTicketNumber:
+          type: string
+      required: [developerId]
+
+    UpdateBugStatusBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [OPEN, ASSIGNED, RESOLVED, TEST, FAILED_TO_RESOLVE, CLOSED]
+        reason:
+          type: string
+      required: [status]
+
+    UpdateBugNotesBody:
+      type: object
+      properties:
+        notes:
+          type: string
+      required: [notes]
+
+    ReassignBugBody:
+      type: object
+      properties:
+        developerId:
+          type: integer
+      required: [developerId]
+
+    # ── Team Discussion Schemas ──────────────────────────────────────────────
+    TeamDiscussion:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        testRunId:
+          type: integer
+        initiatedByUserId:
+          type: integer
+        meetingType:
+          type: string
+          enum: [Defect Review, Post-Mortem]
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/DiscussionParticipant"
+        initiatedBy:
+          $ref: "#/components/schemas/User"
+          nullable: true
+      required: [id, projectId, testRunId, initiatedByUserId, meetingType, isActive, createdAt]
+
+    DiscussionParticipant:
+      type: object
+      properties:
+        id:
+          type: integer
+        discussionId:
+          type: integer
+        userId:
+          type: integer
+        canAddNotes:
+          type: boolean
+        addedAt:
+          type: string
+          format: date-time
+        user:
+          $ref: "#/components/schemas/User"
+          nullable: true
+      required: [id, discussionId, userId, canAddNotes, addedAt]
+
+    CreateDiscussionBody:
+      type: object
+      properties:
+        meetingType:
+          type: string
+          enum: [Defect Review, Post-Mortem]
+        participantIds:
+          type: array
+          items:
+            type: integer
+      required: [meetingType, participantIds]
+
+    AddParticipantBody:
+      type: object
+      properties:
+        userId:
+          type: integer
+        canAddNotes:
+          type: boolean
+          default: false
+      required: [userId]
+
+    # ── Developer Dashboard ─────────────────────────────────────────────────
+    DeveloperBugItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        bugNumber:
+          type: integer
+        supportTicketNumber:
+          type: string
+          nullable: true
+        projectId:
+          type: integer
+        projectName:
+          type: string
+        defectId:
+          type: integer
+        testCaseName:
+          type: string
+        status:
+          type: string
+        developerNotes:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time

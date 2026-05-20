@@ -5,10 +5,9 @@
  * UAT Test Case Management System API
  * OpenAPI spec version: 0.1.0
  */
+import type { SignOffBodyRole } from './signOffBodyRole';
 
-export interface CreateExecutionBody {
-  testerName: string;
-  status?: string;
-  testRunId?: number | null;
-  notes?: string | null;
+export interface SignOffBody {
+  role: SignOffBodyRole;
+  note?: string;
 }

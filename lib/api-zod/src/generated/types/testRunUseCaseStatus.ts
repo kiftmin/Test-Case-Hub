@@ -14,4 +14,5 @@ export const TestRunUseCaseStatus = {
   in_progress: 'in_progress',
   passed: 'passed',
   failed: 'failed',
+  passed_by_agreement: 'passed_by_agreement',
 } as const;

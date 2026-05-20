@@ -17,10 +17,13 @@ export interface TestProject {
   moduleName: string;
   designDate: string;
   testLink?: string | null;
+  testLeadId?: number | null;
   version: number;
   versionDate: string;
   createdAt: string;
   updatedAt: string;
+  isSignedOff: number;
+  signOffData?: string | null;
 }
 
 export interface UseCase {
@@ -101,6 +104,7 @@ export interface CreateProjectBody {
   moduleName: string;
   designDate: string;
   testLink?: string | null;
+  testLeadId?: number | null;
 }
 
 export interface CreateUseCaseBody {
@@ -121,6 +125,7 @@ export interface CreateExecutionBody {
   testerName: string;
   status?: string;
   testRunId?: number | null;
+  notes?: string | null;
 }
 
 export interface CreateStepResultBody {
@@ -245,6 +250,7 @@ export const TestRunUseCaseStatus = {
   in_progress: 'in_progress',
   passed: 'passed',
   failed: 'failed',
+  passed_by_agreement: 'passed_by_agreement',
 } as const;
 
 export interface TestRunUseCase {
@@ -294,6 +300,7 @@ export const UpdateTestRunUseCaseBodyStatus = {
   in_progress: 'in_progress',
   passed: 'passed',
   failed: 'failed',
+  passed_by_agreement: 'passed_by_agreement',
 } as const;
 
 export interface UpdateTestRunUseCaseBody {
@@ -328,8 +335,246 @@ export interface TestRunAnalytics {
   sourceTestRunId?: number | null;
 }
 
+export type CreateRegistrationBodyRole = typeof CreateRegistrationBodyRole[keyof typeof CreateRegistrationBodyRole];
+
+
+export const CreateRegistrationBodyRole = {
+  ADMIN: 'ADMIN',
+  AUTHOR: 'AUTHOR',
+  USER: 'USER',
+} as const;
+
+export interface CreateRegistrationBody {
+  username: string;
+  password: string;
+  name: string;
+  email?: string | null;
+  role: CreateRegistrationBodyRole;
+}
+
+export type UpdateUserBodyRole = typeof UpdateUserBodyRole[keyof typeof UpdateUserBodyRole];
+
+
+export const UpdateUserBodyRole = {
+  ADMIN: 'ADMIN',
+  AUTHOR: 'AUTHOR',
+  USER: 'USER',
+} as const;
+
+export interface UpdateUserBody {
+  name?: string;
+  email?: string | null;
+  role?: UpdateUserBodyRole;
+}
+
+export type SignOffBodyRole = typeof SignOffBodyRole[keyof typeof SignOffBodyRole];
+
+
+export const SignOffBodyRole = {
+  TEST_LEAD: 'TEST_LEAD',
+  BUSINESS_OWNER: 'BUSINESS_OWNER',
+} as const;
+
+export interface SignOffBody {
+  role: SignOffBodyRole;
+  note?: string;
+}
+
+export type SignOffStatusSignOffData = { [key: string]: unknown };
+
+export interface SignOffStatus {
+  isSignedOff?: boolean;
+  testLeadSigned?: boolean;
+  businessOwnerSigned?: boolean;
+  signOffData?: SignOffStatusSignOffData;
+}
+
+export interface DefectNote {
+  id: number;
+  defectId: number;
+  discussionId?: number | null;
+  addedByUserId: number;
+  note: string;
+  createdAt: string;
+  addedByUser?: User | null;
+}
+
+export interface Defect {
+  id: number;
+  testRunId: number;
+  testCaseId: number;
+  executionId: number;
+  testerNotes?: string | null;
+  status: string;
+  retestReason?: string | null;
+  acceptedByBusinessNote?: string | null;
+  rejectionLog?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  testCase?: TestCase | null;
+  execution?: TestExecution | null;
+  notes?: DefectNote[];
+}
+
+export interface FlagRetestBody {
+  reason: string;
+}
+
+export interface BusinessAcceptBody {
+  note: string;
+}
+
+export interface BusinessRejectBody {
+  reason?: string;
+}
+
+export interface CreateDefectNoteBody {
+  note: string;
+  discussionId?: number | null;
+}
+
+export interface StatusAuditLogEntry {
+  id: number;
+  entityType: string;
+  entityId: number;
+  changedByUserId: number;
+  fromStatus: string;
+  toStatus: string;
+  reason?: string | null;
+  changedAt: string;
+  changedByUser?: User | null;
+}
+
+export interface Bug {
+  id: number;
+  projectId: number;
+  defectId: number;
+  bugNumber: number;
+  supportTicketNumber?: string | null;
+  assignedDeveloperId?: number | null;
+  status: string;
+  developerNotes?: string | null;
+  failedToResolveReason?: string | null;
+  openedAt: string;
+  assignedAt?: string | null;
+  resolvedAt?: string | null;
+  testAt?: string | null;
+  failedToResolveAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  defect?: Defect | null;
+  assignedDeveloper?: User | null;
+  auditLog?: StatusAuditLogEntry[];
+}
+
+export interface AssignBugBody {
+  developerId: number;
+  supportTicketNumber?: string;
+}
+
+export type UpdateBugStatusBodyStatus = typeof UpdateBugStatusBodyStatus[keyof typeof UpdateBugStatusBodyStatus];
+
+
+export const UpdateBugStatusBodyStatus = {
+  OPEN: 'OPEN',
+  ASSIGNED: 'ASSIGNED',
+  RESOLVED: 'RESOLVED',
+  TEST: 'TEST',
+  FAILED_TO_RESOLVE: 'FAILED_TO_RESOLVE',
+  CLOSED: 'CLOSED',
+} as const;
+
+export interface UpdateBugStatusBody {
+  status: UpdateBugStatusBodyStatus;
+  reason?: string;
+}
+
+export interface UpdateBugNotesBody {
+  notes: string;
+}
+
+export interface ReassignBugBody {
+  developerId: number;
+}
+
+export type TeamDiscussionMeetingType = typeof TeamDiscussionMeetingType[keyof typeof TeamDiscussionMeetingType];
+
+
+export const TeamDiscussionMeetingType = {
+  Defect_Review: 'Defect Review',
+  'Post-Mortem': 'Post-Mortem',
+} as const;
+
+export interface DiscussionParticipant {
+  id: number;
+  discussionId: number;
+  userId: number;
+  canAddNotes: boolean;
+  addedAt: string;
+  user?: User | null;
+}
+
+export interface TeamDiscussion {
+  id: number;
+  projectId: number;
+  testRunId: number;
+  initiatedByUserId: number;
+  meetingType: TeamDiscussionMeetingType;
+  isActive: boolean;
+  createdAt: string;
+  endedAt?: string | null;
+  participants?: DiscussionParticipant[];
+  initiatedBy?: User | null;
+}
+
+export type CreateDiscussionBodyMeetingType = typeof CreateDiscussionBodyMeetingType[keyof typeof CreateDiscussionBodyMeetingType];
+
+
+export const CreateDiscussionBodyMeetingType = {
+  Defect_Review: 'Defect Review',
+  'Post-Mortem': 'Post-Mortem',
+} as const;
+
+export interface CreateDiscussionBody {
+  meetingType: CreateDiscussionBodyMeetingType;
+  participantIds: number[];
+}
+
+export interface AddParticipantBody {
+  userId: number;
+  canAddNotes?: boolean;
+}
+
+export interface DeveloperBugItem {
+  id?: number;
+  bugNumber?: number;
+  supportTicketNumber?: string | null;
+  projectId?: number;
+  projectName?: string;
+  defectId?: number;
+  testCaseName?: string;
+  status?: string;
+  developerNotes?: string | null;
+  updatedAt?: string;
+}
+
+export type SignOffProject200SignOffData = { [key: string]: unknown };
+
+export type SignOffProject200 = {
+  success?: boolean;
+  signOffData?: SignOffProject200SignOffData;
+};
+
 export type BulkCreateTestStepsBody = {
   steps: CreateTestStepBody[];
+};
+
+export type UploadFileBody = {
+  /** The file to upload (binary) */
+  file?: string;
+  entityType?: string;
+  entityId?: number;
+  field?: string;
 };
 
 export type AddUseCaseToTestRunBody = {
@@ -337,4 +582,10 @@ export type AddUseCaseToTestRunBody = {
 };
 
 export type GetTestRunFullReport200 = { [key: string]: unknown };
+
+export type ListBugsParams = {
+status?: string;
+developerId?: number;
+ticketNumber?: string;
+};
 

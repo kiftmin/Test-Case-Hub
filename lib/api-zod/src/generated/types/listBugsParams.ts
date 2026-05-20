@@ -6,9 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface CreateExecutionBody {
-  testerName: string;
-  status?: string;
-  testRunId?: number | null;
-  notes?: string | null;
-}
+export type ListBugsParams = {
+status?: string;
+developerId?: number;
+ticketNumber?: string;
+};

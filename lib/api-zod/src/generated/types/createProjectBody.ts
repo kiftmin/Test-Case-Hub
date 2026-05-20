@@ -12,4 +12,5 @@ export interface CreateProjectBody {
   moduleName: string;
   designDate: string;
   testLink?: string | null;
+  testLeadId?: number | null;
 }

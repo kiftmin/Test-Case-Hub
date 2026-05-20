@@ -14,8 +14,11 @@ export interface TestProject {
   moduleName: string;
   designDate: string;
   testLink?: string | null;
+  testLeadId?: number | null;
   version: number;
   versionDate: string;
   createdAt: string;
   updatedAt: string;
+  isSignedOff: number;
+  signOffData?: string | null;
 }

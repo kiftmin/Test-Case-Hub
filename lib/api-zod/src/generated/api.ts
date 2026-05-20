@@ -27,10 +27,13 @@ export const ListProjectsResponseItem = zod.object({
   "moduleName": zod.string(),
   "designDate": zod.string(),
   "testLink": zod.string().nullish(),
+  "testLeadId": zod.number().nullish(),
   "version": zod.number(),
   "versionDate": zod.string(),
   "createdAt": zod.string(),
-  "updatedAt": zod.string()
+  "updatedAt": zod.string(),
+  "isSignedOff": zod.number(),
+  "signOffData": zod.string().nullish()
 })
 export const ListProjectsResponse = zod.array(ListProjectsResponseItem)
 
@@ -43,7 +46,8 @@ export const CreateProjectBody = zod.object({
   "designedBy": zod.string(),
   "moduleName": zod.string(),
   "designDate": zod.string(),
-  "testLink": zod.string().nullish()
+  "testLink": zod.string().nullish(),
+  "testLeadId": zod.number().nullish()
 })
 
 
@@ -62,10 +66,13 @@ export const GetProjectResponse = zod.object({
   "moduleName": zod.string(),
   "designDate": zod.string(),
   "testLink": zod.string().nullish(),
+  "testLeadId": zod.number().nullish(),
   "version": zod.number(),
   "versionDate": zod.string(),
   "createdAt": zod.string(),
-  "updatedAt": zod.string()
+  "updatedAt": zod.string(),
+  "isSignedOff": zod.number(),
+  "signOffData": zod.string().nullish()
 }).and(zod.object({
   "useCases": zod.array(zod.object({
   "id": zod.number(),
@@ -144,7 +151,8 @@ export const UpdateProjectBody = zod.object({
   "designedBy": zod.string(),
   "moduleName": zod.string(),
   "designDate": zod.string(),
-  "testLink": zod.string().nullish()
+  "testLink": zod.string().nullish(),
+  "testLeadId": zod.number().nullish()
 })
 
 export const UpdateProjectResponse = zod.object({
@@ -155,10 +163,13 @@ export const UpdateProjectResponse = zod.object({
   "moduleName": zod.string(),
   "designDate": zod.string(),
   "testLink": zod.string().nullish(),
+  "testLeadId": zod.number().nullish(),
   "version": zod.number(),
   "versionDate": zod.string(),
   "createdAt": zod.string(),
-  "updatedAt": zod.string()
+  "updatedAt": zod.string(),
+  "isSignedOff": zod.number(),
+  "signOffData": zod.string().nullish()
 })
 
 
@@ -167,6 +178,43 @@ export const UpdateProjectResponse = zod.object({
  */
 export const DeleteProjectParams = zod.object({
   "projectId": zod.coerce.number()
+})
+
+
+/**
+ * @summary Sign off a project (dual signature)
+ */
+export const SignOffProjectParams = zod.object({
+  "projectId": zod.coerce.number()
+})
+
+export const SignOffProjectBody = zod.object({
+  "role": zod.enum(['TEST_LEAD', 'BUSINESS_OWNER']),
+  "note": zod.string().optional()
+})
+
+export const SignOffProjectResponse = zod.object({
+  "success": zod.boolean().optional(),
+  "signOffData": zod.object({
+
+}).passthrough().optional()
+})
+
+
+/**
+ * @summary Get current sign-off status
+ */
+export const GetSignOffStatusParams = zod.object({
+  "projectId": zod.coerce.number()
+})
+
+export const GetSignOffStatusResponse = zod.object({
+  "isSignedOff": zod.boolean().optional(),
+  "testLeadSigned": zod.boolean().optional(),
+  "businessOwnerSigned": zod.boolean().optional(),
+  "signOffData": zod.object({
+
+}).passthrough().optional()
 })
 
 
@@ -185,10 +233,13 @@ export const GetProjectByCodeResponse = zod.object({
   "moduleName": zod.string(),
   "designDate": zod.string(),
   "testLink": zod.string().nullish(),
+  "testLeadId": zod.number().nullish(),
   "version": zod.number(),
   "versionDate": zod.string(),
   "createdAt": zod.string(),
-  "updatedAt": zod.string()
+  "updatedAt": zod.string(),
+  "isSignedOff": zod.number(),
+  "signOffData": zod.string().nullish()
 }).and(zod.object({
   "useCases": zod.array(zod.object({
   "id": zod.number(),
@@ -516,7 +567,8 @@ export const CreateExecutionParams = zod.object({
 export const CreateExecutionBody = zod.object({
   "testerName": zod.string(),
   "status": zod.string().optional(),
-  "testRunId": zod.number().nullish()
+  "testRunId": zod.number().nullish(),
+  "notes": zod.string().nullish()
 })
 
 
@@ -530,7 +582,8 @@ export const UpdateExecutionParams = zod.object({
 export const UpdateExecutionBody = zod.object({
   "testerName": zod.string(),
   "status": zod.string().optional(),
-  "testRunId": zod.number().nullish()
+  "testRunId": zod.number().nullish(),
+  "notes": zod.string().nullish()
 })
 
 export const UpdateExecutionResponse = zod.object({
@@ -620,6 +673,38 @@ export const DeleteAttachmentParams = zod.object({
 
 
 /**
+ * @summary List all attachments for an entity
+ */
+export const ListAttachmentsParams = zod.object({
+  "entityType": zod.coerce.string(),
+  "entityId": zod.coerce.number()
+})
+
+export const ListAttachmentsResponseItem = zod.object({
+  "id": zod.number(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "field": zod.string(),
+  "fileName": zod.string(),
+  "fileUrl": zod.string(),
+  "fileType": zod.string(),
+  "createdAt": zod.string()
+})
+export const ListAttachmentsResponse = zod.array(ListAttachmentsResponseItem)
+
+
+/**
+ * @summary Upload a file
+ */
+export const UploadFileBody = zod.object({
+  "file": zod.string().optional().describe('The file to upload (binary)'),
+  "entityType": zod.string().optional(),
+  "entityId": zod.number().optional(),
+  "field": zod.string().optional()
+})
+
+
+/**
  * @summary Overall system summary
  */
 export const GetDashboardSummaryResponse = zod.object({
@@ -669,6 +754,28 @@ export const GetRecentActivityResponseItem = zod.object({
   "executedAt": zod.string()
 })
 export const GetRecentActivityResponse = zod.array(GetRecentActivityResponseItem)
+
+
+/**
+ * @summary List bugs assigned to a developer
+ */
+export const GetDeveloperBugsParams = zod.object({
+  "userId": zod.coerce.number()
+})
+
+export const GetDeveloperBugsResponseItem = zod.object({
+  "id": zod.number().optional(),
+  "bugNumber": zod.number().optional(),
+  "supportTicketNumber": zod.string().nullish(),
+  "projectId": zod.number().optional(),
+  "projectName": zod.string().optional(),
+  "defectId": zod.number().optional(),
+  "testCaseName": zod.string().optional(),
+  "status": zod.string().optional(),
+  "developerNotes": zod.string().nullish(),
+  "updatedAt": zod.coerce.date().optional()
+})
+export const GetDeveloperBugsResponse = zod.array(GetDeveloperBugsResponseItem)
 
 
 /**
@@ -734,7 +841,7 @@ export const GetTestRunResponse = zod.object({
   "assignedTesterName": zod.string().nullish(),
   "assignedTesterUsername": zod.string().nullish(),
   "freePass": zod.boolean(),
-  "status": zod.enum(['pending', 'in_progress', 'passed', 'failed']),
+  "status": zod.enum(['pending', 'in_progress', 'passed', 'failed', 'passed_by_agreement']),
   "createdAt": zod.coerce.date()
 }))
 }))
@@ -774,7 +881,7 @@ export const UpdateTestRunResponse = zod.object({
   "assignedTesterName": zod.string().nullish(),
   "assignedTesterUsername": zod.string().nullish(),
   "freePass": zod.boolean(),
-  "status": zod.enum(['pending', 'in_progress', 'passed', 'failed']),
+  "status": zod.enum(['pending', 'in_progress', 'passed', 'failed', 'passed_by_agreement']),
   "createdAt": zod.coerce.date()
 }))
 }))
@@ -803,7 +910,7 @@ export const UpdateTestRunUseCaseParams = zod.object({
 export const UpdateTestRunUseCaseBody = zod.object({
   "assignedTesterId": zod.number().nullish(),
   "freePass": zod.boolean().optional(),
-  "status": zod.enum(['pending', 'in_progress', 'passed', 'failed']).optional()
+  "status": zod.enum(['pending', 'in_progress', 'passed', 'failed', 'passed_by_agreement']).optional()
 })
 
 export const UpdateTestRunUseCaseResponse = zod.object({
@@ -827,7 +934,7 @@ export const UpdateTestRunUseCaseResponse = zod.object({
   "assignedTesterName": zod.string().nullish(),
   "assignedTesterUsername": zod.string().nullish(),
   "freePass": zod.boolean(),
-  "status": zod.enum(['pending', 'in_progress', 'passed', 'failed']),
+  "status": zod.enum(['pending', 'in_progress', 'passed', 'failed', 'passed_by_agreement']),
   "createdAt": zod.coerce.date()
 }))
 }))
@@ -871,7 +978,7 @@ export const SyncTestRunUseCaseStatusResponse = zod.object({
   "assignedTesterName": zod.string().nullish(),
   "assignedTesterUsername": zod.string().nullish(),
   "freePass": zod.boolean(),
-  "status": zod.enum(['pending', 'in_progress', 'passed', 'failed']),
+  "status": zod.enum(['pending', 'in_progress', 'passed', 'failed', 'passed_by_agreement']),
   "createdAt": zod.coerce.date()
 }))
 }))
@@ -973,6 +1080,18 @@ export const LoginResponse = zod.object({
 
 
 /**
+ * @summary Register a new user (Admin only)
+ */
+export const RegisterBody = zod.object({
+  "username": zod.string(),
+  "password": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.enum(['ADMIN', 'AUTHOR', 'USER'])
+})
+
+
+/**
  * @summary List all users
  */
 export const ListUsersResponseItem = zod.object({
@@ -995,6 +1114,37 @@ export const CreateUserBody = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string()
+})
+
+
+/**
+ * @summary Update user details (Admin only)
+ */
+export const UpdateUserParams = zod.object({
+  "userId": zod.coerce.number()
+})
+
+export const UpdateUserBody = zod.object({
+  "name": zod.string().optional(),
+  "email": zod.string().nullish(),
+  "role": zod.enum(['ADMIN', 'AUTHOR', 'USER']).optional()
+})
+
+export const UpdateUserResponse = zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Delete a user (Admin only)
+ */
+export const DeleteUserParams = zod.object({
+  "userId": zod.coerce.number()
 })
 
 
@@ -1060,11 +1210,1507 @@ export const ListUserProjectsResponseItem = zod.object({
   "moduleName": zod.string(),
   "designDate": zod.string(),
   "testLink": zod.string().nullish(),
+  "testLeadId": zod.number().nullish(),
   "version": zod.number(),
   "versionDate": zod.string(),
   "createdAt": zod.string(),
-  "updatedAt": zod.string()
+  "updatedAt": zod.string(),
+  "isSignedOff": zod.number(),
+  "signOffData": zod.string().nullish()
 })
 export const ListUserProjectsResponse = zod.array(ListUserProjectsResponseItem)
+
+
+/**
+ * @summary List all defects for a test run
+ */
+export const ListDefectsParams = zod.object({
+  "testRunId": zod.coerce.number()
+})
+
+export const ListDefectsResponseItem = zod.object({
+  "id": zod.number(),
+  "testRunId": zod.number(),
+  "testCaseId": zod.number(),
+  "executionId": zod.number(),
+  "testerNotes": zod.string().nullish(),
+  "status": zod.string(),
+  "retestReason": zod.string().nullish(),
+  "acceptedByBusinessNote": zod.string().nullish(),
+  "rejectionLog": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "testCase": zod.object({
+  "id": zod.number(),
+  "useCaseId": zod.number(),
+  "caseNumber": zod.number(),
+  "title": zod.string(),
+  "createdAt": zod.string()
+}).nullish(),
+  "execution": zod.object({
+  "id": zod.number(),
+  "testCaseId": zod.number(),
+  "testRunId": zod.number().nullish(),
+  "iterationNumber": zod.number(),
+  "testerName": zod.string(),
+  "status": zod.string(),
+  "executedAt": zod.string(),
+  "stepResults": zod.array(zod.object({
+  "id": zod.number(),
+  "executionId": zod.number(),
+  "stepId": zod.number(),
+  "actualResult": zod.string().nullish(),
+  "comments": zod.string().nullish(),
+  "passed": zod.boolean().nullish(),
+  "recordedAt": zod.string(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "field": zod.string(),
+  "fileName": zod.string(),
+  "fileUrl": zod.string(),
+  "fileType": zod.string(),
+  "createdAt": zod.string()
+}))
+})).optional()
+}).nullish(),
+  "notes": zod.array(zod.object({
+  "id": zod.number(),
+  "defectId": zod.number(),
+  "discussionId": zod.number().nullish(),
+  "addedByUserId": zod.number(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "addedByUser": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional()
+})
+export const ListDefectsResponse = zod.array(ListDefectsResponseItem)
+
+
+/**
+ * @summary Get a single defect with full detail
+ */
+export const GetDefectParams = zod.object({
+  "defectId": zod.coerce.number()
+})
+
+export const GetDefectResponse = zod.object({
+  "id": zod.number(),
+  "testRunId": zod.number(),
+  "testCaseId": zod.number(),
+  "executionId": zod.number(),
+  "testerNotes": zod.string().nullish(),
+  "status": zod.string(),
+  "retestReason": zod.string().nullish(),
+  "acceptedByBusinessNote": zod.string().nullish(),
+  "rejectionLog": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "testCase": zod.object({
+  "id": zod.number(),
+  "useCaseId": zod.number(),
+  "caseNumber": zod.number(),
+  "title": zod.string(),
+  "createdAt": zod.string()
+}).nullish(),
+  "execution": zod.object({
+  "id": zod.number(),
+  "testCaseId": zod.number(),
+  "testRunId": zod.number().nullish(),
+  "iterationNumber": zod.number(),
+  "testerName": zod.string(),
+  "status": zod.string(),
+  "executedAt": zod.string(),
+  "stepResults": zod.array(zod.object({
+  "id": zod.number(),
+  "executionId": zod.number(),
+  "stepId": zod.number(),
+  "actualResult": zod.string().nullish(),
+  "comments": zod.string().nullish(),
+  "passed": zod.boolean().nullish(),
+  "recordedAt": zod.string(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "field": zod.string(),
+  "fileName": zod.string(),
+  "fileUrl": zod.string(),
+  "fileType": zod.string(),
+  "createdAt": zod.string()
+}))
+})).optional()
+}).nullish(),
+  "notes": zod.array(zod.object({
+  "id": zod.number(),
+  "defectId": zod.number(),
+  "discussionId": zod.number().nullish(),
+  "addedByUserId": zod.number(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "addedByUser": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional()
+})
+
+
+/**
+ * @summary Flag a defect as a bug (Test Lead/Admin)
+ */
+export const FlagDefectAsBugParams = zod.object({
+  "defectId": zod.coerce.number()
+})
+
+export const FlagDefectAsBugResponse = zod.object({
+  "id": zod.number(),
+  "testRunId": zod.number(),
+  "testCaseId": zod.number(),
+  "executionId": zod.number(),
+  "testerNotes": zod.string().nullish(),
+  "status": zod.string(),
+  "retestReason": zod.string().nullish(),
+  "acceptedByBusinessNote": zod.string().nullish(),
+  "rejectionLog": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "testCase": zod.object({
+  "id": zod.number(),
+  "useCaseId": zod.number(),
+  "caseNumber": zod.number(),
+  "title": zod.string(),
+  "createdAt": zod.string()
+}).nullish(),
+  "execution": zod.object({
+  "id": zod.number(),
+  "testCaseId": zod.number(),
+  "testRunId": zod.number().nullish(),
+  "iterationNumber": zod.number(),
+  "testerName": zod.string(),
+  "status": zod.string(),
+  "executedAt": zod.string(),
+  "stepResults": zod.array(zod.object({
+  "id": zod.number(),
+  "executionId": zod.number(),
+  "stepId": zod.number(),
+  "actualResult": zod.string().nullish(),
+  "comments": zod.string().nullish(),
+  "passed": zod.boolean().nullish(),
+  "recordedAt": zod.string(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "field": zod.string(),
+  "fileName": zod.string(),
+  "fileUrl": zod.string(),
+  "fileType": zod.string(),
+  "createdAt": zod.string()
+}))
+})).optional()
+}).nullish(),
+  "notes": zod.array(zod.object({
+  "id": zod.number(),
+  "defectId": zod.number(),
+  "discussionId": zod.number().nullish(),
+  "addedByUserId": zod.number(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "addedByUser": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional()
+})
+
+
+/**
+ * @summary Flag a defect for retesting
+ */
+export const FlagDefectForRetestParams = zod.object({
+  "defectId": zod.coerce.number()
+})
+
+export const FlagDefectForRetestBody = zod.object({
+  "reason": zod.string()
+})
+
+export const FlagDefectForRetestResponse = zod.object({
+  "id": zod.number(),
+  "testRunId": zod.number(),
+  "testCaseId": zod.number(),
+  "executionId": zod.number(),
+  "testerNotes": zod.string().nullish(),
+  "status": zod.string(),
+  "retestReason": zod.string().nullish(),
+  "acceptedByBusinessNote": zod.string().nullish(),
+  "rejectionLog": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "testCase": zod.object({
+  "id": zod.number(),
+  "useCaseId": zod.number(),
+  "caseNumber": zod.number(),
+  "title": zod.string(),
+  "createdAt": zod.string()
+}).nullish(),
+  "execution": zod.object({
+  "id": zod.number(),
+  "testCaseId": zod.number(),
+  "testRunId": zod.number().nullish(),
+  "iterationNumber": zod.number(),
+  "testerName": zod.string(),
+  "status": zod.string(),
+  "executedAt": zod.string(),
+  "stepResults": zod.array(zod.object({
+  "id": zod.number(),
+  "executionId": zod.number(),
+  "stepId": zod.number(),
+  "actualResult": zod.string().nullish(),
+  "comments": zod.string().nullish(),
+  "passed": zod.boolean().nullish(),
+  "recordedAt": zod.string(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "field": zod.string(),
+  "fileName": zod.string(),
+  "fileUrl": zod.string(),
+  "fileType": zod.string(),
+  "createdAt": zod.string()
+}))
+})).optional()
+}).nullish(),
+  "notes": zod.array(zod.object({
+  "id": zod.number(),
+  "defectId": zod.number(),
+  "discussionId": zod.number().nullish(),
+  "addedByUserId": zod.number(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "addedByUser": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional()
+})
+
+
+/**
+ * @summary Flag a defect as accepted by business (Test Lead/Admin)
+ */
+export const FlagDefectAcceptedByBusinessParams = zod.object({
+  "defectId": zod.coerce.number()
+})
+
+export const FlagDefectAcceptedByBusinessResponse = zod.object({
+  "id": zod.number(),
+  "testRunId": zod.number(),
+  "testCaseId": zod.number(),
+  "executionId": zod.number(),
+  "testerNotes": zod.string().nullish(),
+  "status": zod.string(),
+  "retestReason": zod.string().nullish(),
+  "acceptedByBusinessNote": zod.string().nullish(),
+  "rejectionLog": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "testCase": zod.object({
+  "id": zod.number(),
+  "useCaseId": zod.number(),
+  "caseNumber": zod.number(),
+  "title": zod.string(),
+  "createdAt": zod.string()
+}).nullish(),
+  "execution": zod.object({
+  "id": zod.number(),
+  "testCaseId": zod.number(),
+  "testRunId": zod.number().nullish(),
+  "iterationNumber": zod.number(),
+  "testerName": zod.string(),
+  "status": zod.string(),
+  "executedAt": zod.string(),
+  "stepResults": zod.array(zod.object({
+  "id": zod.number(),
+  "executionId": zod.number(),
+  "stepId": zod.number(),
+  "actualResult": zod.string().nullish(),
+  "comments": zod.string().nullish(),
+  "passed": zod.boolean().nullish(),
+  "recordedAt": zod.string(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "field": zod.string(),
+  "fileName": zod.string(),
+  "fileUrl": zod.string(),
+  "fileType": zod.string(),
+  "createdAt": zod.string()
+}))
+})).optional()
+}).nullish(),
+  "notes": zod.array(zod.object({
+  "id": zod.number(),
+  "defectId": zod.number(),
+  "discussionId": zod.number().nullish(),
+  "addedByUserId": zod.number(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "addedByUser": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional()
+})
+
+
+/**
+ * @summary Business Owner accepts a defect
+ */
+export const BusinessAcceptDefectParams = zod.object({
+  "defectId": zod.coerce.number()
+})
+
+export const BusinessAcceptDefectBody = zod.object({
+  "note": zod.string()
+})
+
+export const BusinessAcceptDefectResponse = zod.object({
+  "id": zod.number(),
+  "testRunId": zod.number(),
+  "testCaseId": zod.number(),
+  "executionId": zod.number(),
+  "testerNotes": zod.string().nullish(),
+  "status": zod.string(),
+  "retestReason": zod.string().nullish(),
+  "acceptedByBusinessNote": zod.string().nullish(),
+  "rejectionLog": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "testCase": zod.object({
+  "id": zod.number(),
+  "useCaseId": zod.number(),
+  "caseNumber": zod.number(),
+  "title": zod.string(),
+  "createdAt": zod.string()
+}).nullish(),
+  "execution": zod.object({
+  "id": zod.number(),
+  "testCaseId": zod.number(),
+  "testRunId": zod.number().nullish(),
+  "iterationNumber": zod.number(),
+  "testerName": zod.string(),
+  "status": zod.string(),
+  "executedAt": zod.string(),
+  "stepResults": zod.array(zod.object({
+  "id": zod.number(),
+  "executionId": zod.number(),
+  "stepId": zod.number(),
+  "actualResult": zod.string().nullish(),
+  "comments": zod.string().nullish(),
+  "passed": zod.boolean().nullish(),
+  "recordedAt": zod.string(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "field": zod.string(),
+  "fileName": zod.string(),
+  "fileUrl": zod.string(),
+  "fileType": zod.string(),
+  "createdAt": zod.string()
+}))
+})).optional()
+}).nullish(),
+  "notes": zod.array(zod.object({
+  "id": zod.number(),
+  "defectId": zod.number(),
+  "discussionId": zod.number().nullish(),
+  "addedByUserId": zod.number(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "addedByUser": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional()
+})
+
+
+/**
+ * @summary Business Owner rejects a defect
+ */
+export const BusinessRejectDefectParams = zod.object({
+  "defectId": zod.coerce.number()
+})
+
+export const BusinessRejectDefectBody = zod.object({
+  "reason": zod.string().optional()
+})
+
+export const BusinessRejectDefectResponse = zod.object({
+  "id": zod.number(),
+  "testRunId": zod.number(),
+  "testCaseId": zod.number(),
+  "executionId": zod.number(),
+  "testerNotes": zod.string().nullish(),
+  "status": zod.string(),
+  "retestReason": zod.string().nullish(),
+  "acceptedByBusinessNote": zod.string().nullish(),
+  "rejectionLog": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "testCase": zod.object({
+  "id": zod.number(),
+  "useCaseId": zod.number(),
+  "caseNumber": zod.number(),
+  "title": zod.string(),
+  "createdAt": zod.string()
+}).nullish(),
+  "execution": zod.object({
+  "id": zod.number(),
+  "testCaseId": zod.number(),
+  "testRunId": zod.number().nullish(),
+  "iterationNumber": zod.number(),
+  "testerName": zod.string(),
+  "status": zod.string(),
+  "executedAt": zod.string(),
+  "stepResults": zod.array(zod.object({
+  "id": zod.number(),
+  "executionId": zod.number(),
+  "stepId": zod.number(),
+  "actualResult": zod.string().nullish(),
+  "comments": zod.string().nullish(),
+  "passed": zod.boolean().nullish(),
+  "recordedAt": zod.string(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "field": zod.string(),
+  "fileName": zod.string(),
+  "fileUrl": zod.string(),
+  "fileType": zod.string(),
+  "createdAt": zod.string()
+}))
+})).optional()
+}).nullish(),
+  "notes": zod.array(zod.object({
+  "id": zod.number(),
+  "defectId": zod.number(),
+  "discussionId": zod.number().nullish(),
+  "addedByUserId": zod.number(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "addedByUser": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional()
+})
+
+
+/**
+ * @summary Add a note to a defect
+ */
+export const AddDefectNoteParams = zod.object({
+  "defectId": zod.coerce.number()
+})
+
+export const AddDefectNoteBody = zod.object({
+  "note": zod.string(),
+  "discussionId": zod.number().nullish()
+})
+
+
+/**
+ * @summary List all bugs for a project
+ */
+export const ListBugsParams = zod.object({
+  "projectId": zod.coerce.number()
+})
+
+export const ListBugsQueryParams = zod.object({
+  "status": zod.coerce.string().optional(),
+  "developerId": zod.coerce.number().optional(),
+  "ticketNumber": zod.coerce.string().optional()
+})
+
+export const ListBugsResponseItem = zod.object({
+  "id": zod.number(),
+  "projectId": zod.number(),
+  "defectId": zod.number(),
+  "bugNumber": zod.number(),
+  "supportTicketNumber": zod.string().nullish(),
+  "assignedDeveloperId": zod.number().nullish(),
+  "status": zod.string(),
+  "developerNotes": zod.string().nullish(),
+  "failedToResolveReason": zod.string().nullish(),
+  "openedAt": zod.coerce.date(),
+  "assignedAt": zod.coerce.date().nullish(),
+  "resolvedAt": zod.coerce.date().nullish(),
+  "testAt": zod.coerce.date().nullish(),
+  "failedToResolveAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "defect": zod.object({
+  "id": zod.number(),
+  "testRunId": zod.number(),
+  "testCaseId": zod.number(),
+  "executionId": zod.number(),
+  "testerNotes": zod.string().nullish(),
+  "status": zod.string(),
+  "retestReason": zod.string().nullish(),
+  "acceptedByBusinessNote": zod.string().nullish(),
+  "rejectionLog": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "testCase": zod.object({
+  "id": zod.number(),
+  "useCaseId": zod.number(),
+  "caseNumber": zod.number(),
+  "title": zod.string(),
+  "createdAt": zod.string()
+}).nullish(),
+  "execution": zod.object({
+  "id": zod.number(),
+  "testCaseId": zod.number(),
+  "testRunId": zod.number().nullish(),
+  "iterationNumber": zod.number(),
+  "testerName": zod.string(),
+  "status": zod.string(),
+  "executedAt": zod.string(),
+  "stepResults": zod.array(zod.object({
+  "id": zod.number(),
+  "executionId": zod.number(),
+  "stepId": zod.number(),
+  "actualResult": zod.string().nullish(),
+  "comments": zod.string().nullish(),
+  "passed": zod.boolean().nullish(),
+  "recordedAt": zod.string(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "field": zod.string(),
+  "fileName": zod.string(),
+  "fileUrl": zod.string(),
+  "fileType": zod.string(),
+  "createdAt": zod.string()
+}))
+})).optional()
+}).nullish(),
+  "notes": zod.array(zod.object({
+  "id": zod.number(),
+  "defectId": zod.number(),
+  "discussionId": zod.number().nullish(),
+  "addedByUserId": zod.number(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "addedByUser": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional()
+}).nullish(),
+  "assignedDeveloper": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish(),
+  "auditLog": zod.array(zod.object({
+  "id": zod.number(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "changedByUserId": zod.number(),
+  "fromStatus": zod.string(),
+  "toStatus": zod.string(),
+  "reason": zod.string().nullish(),
+  "changedAt": zod.coerce.date(),
+  "changedByUser": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional()
+})
+export const ListBugsResponse = zod.array(ListBugsResponseItem)
+
+
+/**
+ * @summary Get a single bug with full detail
+ */
+export const GetBugParams = zod.object({
+  "bugId": zod.coerce.number()
+})
+
+export const GetBugResponse = zod.object({
+  "id": zod.number(),
+  "projectId": zod.number(),
+  "defectId": zod.number(),
+  "bugNumber": zod.number(),
+  "supportTicketNumber": zod.string().nullish(),
+  "assignedDeveloperId": zod.number().nullish(),
+  "status": zod.string(),
+  "developerNotes": zod.string().nullish(),
+  "failedToResolveReason": zod.string().nullish(),
+  "openedAt": zod.coerce.date(),
+  "assignedAt": zod.coerce.date().nullish(),
+  "resolvedAt": zod.coerce.date().nullish(),
+  "testAt": zod.coerce.date().nullish(),
+  "failedToResolveAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "defect": zod.object({
+  "id": zod.number(),
+  "testRunId": zod.number(),
+  "testCaseId": zod.number(),
+  "executionId": zod.number(),
+  "testerNotes": zod.string().nullish(),
+  "status": zod.string(),
+  "retestReason": zod.string().nullish(),
+  "acceptedByBusinessNote": zod.string().nullish(),
+  "rejectionLog": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "testCase": zod.object({
+  "id": zod.number(),
+  "useCaseId": zod.number(),
+  "caseNumber": zod.number(),
+  "title": zod.string(),
+  "createdAt": zod.string()
+}).nullish(),
+  "execution": zod.object({
+  "id": zod.number(),
+  "testCaseId": zod.number(),
+  "testRunId": zod.number().nullish(),
+  "iterationNumber": zod.number(),
+  "testerName": zod.string(),
+  "status": zod.string(),
+  "executedAt": zod.string(),
+  "stepResults": zod.array(zod.object({
+  "id": zod.number(),
+  "executionId": zod.number(),
+  "stepId": zod.number(),
+  "actualResult": zod.string().nullish(),
+  "comments": zod.string().nullish(),
+  "passed": zod.boolean().nullish(),
+  "recordedAt": zod.string(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "field": zod.string(),
+  "fileName": zod.string(),
+  "fileUrl": zod.string(),
+  "fileType": zod.string(),
+  "createdAt": zod.string()
+}))
+})).optional()
+}).nullish(),
+  "notes": zod.array(zod.object({
+  "id": zod.number(),
+  "defectId": zod.number(),
+  "discussionId": zod.number().nullish(),
+  "addedByUserId": zod.number(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "addedByUser": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional()
+}).nullish(),
+  "assignedDeveloper": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish(),
+  "auditLog": zod.array(zod.object({
+  "id": zod.number(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "changedByUserId": zod.number(),
+  "fromStatus": zod.string(),
+  "toStatus": zod.string(),
+  "reason": zod.string().nullish(),
+  "changedAt": zod.coerce.date(),
+  "changedByUser": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional()
+})
+
+
+/**
+ * @summary Assign a bug to a developer
+ */
+export const AssignBugParams = zod.object({
+  "bugId": zod.coerce.number()
+})
+
+export const AssignBugBody = zod.object({
+  "developerId": zod.number(),
+  "supportTicketNumber": zod.string().optional()
+})
+
+export const AssignBugResponse = zod.object({
+  "id": zod.number(),
+  "projectId": zod.number(),
+  "defectId": zod.number(),
+  "bugNumber": zod.number(),
+  "supportTicketNumber": zod.string().nullish(),
+  "assignedDeveloperId": zod.number().nullish(),
+  "status": zod.string(),
+  "developerNotes": zod.string().nullish(),
+  "failedToResolveReason": zod.string().nullish(),
+  "openedAt": zod.coerce.date(),
+  "assignedAt": zod.coerce.date().nullish(),
+  "resolvedAt": zod.coerce.date().nullish(),
+  "testAt": zod.coerce.date().nullish(),
+  "failedToResolveAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "defect": zod.object({
+  "id": zod.number(),
+  "testRunId": zod.number(),
+  "testCaseId": zod.number(),
+  "executionId": zod.number(),
+  "testerNotes": zod.string().nullish(),
+  "status": zod.string(),
+  "retestReason": zod.string().nullish(),
+  "acceptedByBusinessNote": zod.string().nullish(),
+  "rejectionLog": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "testCase": zod.object({
+  "id": zod.number(),
+  "useCaseId": zod.number(),
+  "caseNumber": zod.number(),
+  "title": zod.string(),
+  "createdAt": zod.string()
+}).nullish(),
+  "execution": zod.object({
+  "id": zod.number(),
+  "testCaseId": zod.number(),
+  "testRunId": zod.number().nullish(),
+  "iterationNumber": zod.number(),
+  "testerName": zod.string(),
+  "status": zod.string(),
+  "executedAt": zod.string(),
+  "stepResults": zod.array(zod.object({
+  "id": zod.number(),
+  "executionId": zod.number(),
+  "stepId": zod.number(),
+  "actualResult": zod.string().nullish(),
+  "comments": zod.string().nullish(),
+  "passed": zod.boolean().nullish(),
+  "recordedAt": zod.string(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "field": zod.string(),
+  "fileName": zod.string(),
+  "fileUrl": zod.string(),
+  "fileType": zod.string(),
+  "createdAt": zod.string()
+}))
+})).optional()
+}).nullish(),
+  "notes": zod.array(zod.object({
+  "id": zod.number(),
+  "defectId": zod.number(),
+  "discussionId": zod.number().nullish(),
+  "addedByUserId": zod.number(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "addedByUser": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional()
+}).nullish(),
+  "assignedDeveloper": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish(),
+  "auditLog": zod.array(zod.object({
+  "id": zod.number(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "changedByUserId": zod.number(),
+  "fromStatus": zod.string(),
+  "toStatus": zod.string(),
+  "reason": zod.string().nullish(),
+  "changedAt": zod.coerce.date(),
+  "changedByUser": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional()
+})
+
+
+/**
+ * @summary Update bug status
+ */
+export const UpdateBugStatusParams = zod.object({
+  "bugId": zod.coerce.number()
+})
+
+export const UpdateBugStatusBody = zod.object({
+  "status": zod.enum(['OPEN', 'ASSIGNED', 'RESOLVED', 'TEST', 'FAILED_TO_RESOLVE', 'CLOSED']),
+  "reason": zod.string().optional()
+})
+
+export const UpdateBugStatusResponse = zod.object({
+  "id": zod.number(),
+  "projectId": zod.number(),
+  "defectId": zod.number(),
+  "bugNumber": zod.number(),
+  "supportTicketNumber": zod.string().nullish(),
+  "assignedDeveloperId": zod.number().nullish(),
+  "status": zod.string(),
+  "developerNotes": zod.string().nullish(),
+  "failedToResolveReason": zod.string().nullish(),
+  "openedAt": zod.coerce.date(),
+  "assignedAt": zod.coerce.date().nullish(),
+  "resolvedAt": zod.coerce.date().nullish(),
+  "testAt": zod.coerce.date().nullish(),
+  "failedToResolveAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "defect": zod.object({
+  "id": zod.number(),
+  "testRunId": zod.number(),
+  "testCaseId": zod.number(),
+  "executionId": zod.number(),
+  "testerNotes": zod.string().nullish(),
+  "status": zod.string(),
+  "retestReason": zod.string().nullish(),
+  "acceptedByBusinessNote": zod.string().nullish(),
+  "rejectionLog": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "testCase": zod.object({
+  "id": zod.number(),
+  "useCaseId": zod.number(),
+  "caseNumber": zod.number(),
+  "title": zod.string(),
+  "createdAt": zod.string()
+}).nullish(),
+  "execution": zod.object({
+  "id": zod.number(),
+  "testCaseId": zod.number(),
+  "testRunId": zod.number().nullish(),
+  "iterationNumber": zod.number(),
+  "testerName": zod.string(),
+  "status": zod.string(),
+  "executedAt": zod.string(),
+  "stepResults": zod.array(zod.object({
+  "id": zod.number(),
+  "executionId": zod.number(),
+  "stepId": zod.number(),
+  "actualResult": zod.string().nullish(),
+  "comments": zod.string().nullish(),
+  "passed": zod.boolean().nullish(),
+  "recordedAt": zod.string(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "field": zod.string(),
+  "fileName": zod.string(),
+  "fileUrl": zod.string(),
+  "fileType": zod.string(),
+  "createdAt": zod.string()
+}))
+})).optional()
+}).nullish(),
+  "notes": zod.array(zod.object({
+  "id": zod.number(),
+  "defectId": zod.number(),
+  "discussionId": zod.number().nullish(),
+  "addedByUserId": zod.number(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "addedByUser": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional()
+}).nullish(),
+  "assignedDeveloper": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish(),
+  "auditLog": zod.array(zod.object({
+  "id": zod.number(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "changedByUserId": zod.number(),
+  "fromStatus": zod.string(),
+  "toStatus": zod.string(),
+  "reason": zod.string().nullish(),
+  "changedAt": zod.coerce.date(),
+  "changedByUser": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional()
+})
+
+
+/**
+ * @summary Update developer notes on a bug
+ */
+export const UpdateBugNotesParams = zod.object({
+  "bugId": zod.coerce.number()
+})
+
+export const UpdateBugNotesBody = zod.object({
+  "notes": zod.string()
+})
+
+export const UpdateBugNotesResponse = zod.object({
+  "id": zod.number(),
+  "projectId": zod.number(),
+  "defectId": zod.number(),
+  "bugNumber": zod.number(),
+  "supportTicketNumber": zod.string().nullish(),
+  "assignedDeveloperId": zod.number().nullish(),
+  "status": zod.string(),
+  "developerNotes": zod.string().nullish(),
+  "failedToResolveReason": zod.string().nullish(),
+  "openedAt": zod.coerce.date(),
+  "assignedAt": zod.coerce.date().nullish(),
+  "resolvedAt": zod.coerce.date().nullish(),
+  "testAt": zod.coerce.date().nullish(),
+  "failedToResolveAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "defect": zod.object({
+  "id": zod.number(),
+  "testRunId": zod.number(),
+  "testCaseId": zod.number(),
+  "executionId": zod.number(),
+  "testerNotes": zod.string().nullish(),
+  "status": zod.string(),
+  "retestReason": zod.string().nullish(),
+  "acceptedByBusinessNote": zod.string().nullish(),
+  "rejectionLog": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "testCase": zod.object({
+  "id": zod.number(),
+  "useCaseId": zod.number(),
+  "caseNumber": zod.number(),
+  "title": zod.string(),
+  "createdAt": zod.string()
+}).nullish(),
+  "execution": zod.object({
+  "id": zod.number(),
+  "testCaseId": zod.number(),
+  "testRunId": zod.number().nullish(),
+  "iterationNumber": zod.number(),
+  "testerName": zod.string(),
+  "status": zod.string(),
+  "executedAt": zod.string(),
+  "stepResults": zod.array(zod.object({
+  "id": zod.number(),
+  "executionId": zod.number(),
+  "stepId": zod.number(),
+  "actualResult": zod.string().nullish(),
+  "comments": zod.string().nullish(),
+  "passed": zod.boolean().nullish(),
+  "recordedAt": zod.string(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "field": zod.string(),
+  "fileName": zod.string(),
+  "fileUrl": zod.string(),
+  "fileType": zod.string(),
+  "createdAt": zod.string()
+}))
+})).optional()
+}).nullish(),
+  "notes": zod.array(zod.object({
+  "id": zod.number(),
+  "defectId": zod.number(),
+  "discussionId": zod.number().nullish(),
+  "addedByUserId": zod.number(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "addedByUser": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional()
+}).nullish(),
+  "assignedDeveloper": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish(),
+  "auditLog": zod.array(zod.object({
+  "id": zod.number(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "changedByUserId": zod.number(),
+  "fromStatus": zod.string(),
+  "toStatus": zod.string(),
+  "reason": zod.string().nullish(),
+  "changedAt": zod.coerce.date(),
+  "changedByUser": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional()
+})
+
+
+/**
+ * @summary Reassign a bug to another developer
+ */
+export const ReassignBugParams = zod.object({
+  "bugId": zod.coerce.number()
+})
+
+export const ReassignBugBody = zod.object({
+  "developerId": zod.number()
+})
+
+export const ReassignBugResponse = zod.object({
+  "id": zod.number(),
+  "projectId": zod.number(),
+  "defectId": zod.number(),
+  "bugNumber": zod.number(),
+  "supportTicketNumber": zod.string().nullish(),
+  "assignedDeveloperId": zod.number().nullish(),
+  "status": zod.string(),
+  "developerNotes": zod.string().nullish(),
+  "failedToResolveReason": zod.string().nullish(),
+  "openedAt": zod.coerce.date(),
+  "assignedAt": zod.coerce.date().nullish(),
+  "resolvedAt": zod.coerce.date().nullish(),
+  "testAt": zod.coerce.date().nullish(),
+  "failedToResolveAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "defect": zod.object({
+  "id": zod.number(),
+  "testRunId": zod.number(),
+  "testCaseId": zod.number(),
+  "executionId": zod.number(),
+  "testerNotes": zod.string().nullish(),
+  "status": zod.string(),
+  "retestReason": zod.string().nullish(),
+  "acceptedByBusinessNote": zod.string().nullish(),
+  "rejectionLog": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "testCase": zod.object({
+  "id": zod.number(),
+  "useCaseId": zod.number(),
+  "caseNumber": zod.number(),
+  "title": zod.string(),
+  "createdAt": zod.string()
+}).nullish(),
+  "execution": zod.object({
+  "id": zod.number(),
+  "testCaseId": zod.number(),
+  "testRunId": zod.number().nullish(),
+  "iterationNumber": zod.number(),
+  "testerName": zod.string(),
+  "status": zod.string(),
+  "executedAt": zod.string(),
+  "stepResults": zod.array(zod.object({
+  "id": zod.number(),
+  "executionId": zod.number(),
+  "stepId": zod.number(),
+  "actualResult": zod.string().nullish(),
+  "comments": zod.string().nullish(),
+  "passed": zod.boolean().nullish(),
+  "recordedAt": zod.string(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "field": zod.string(),
+  "fileName": zod.string(),
+  "fileUrl": zod.string(),
+  "fileType": zod.string(),
+  "createdAt": zod.string()
+}))
+})).optional()
+}).nullish(),
+  "notes": zod.array(zod.object({
+  "id": zod.number(),
+  "defectId": zod.number(),
+  "discussionId": zod.number().nullish(),
+  "addedByUserId": zod.number(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "addedByUser": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional()
+}).nullish(),
+  "assignedDeveloper": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish(),
+  "auditLog": zod.array(zod.object({
+  "id": zod.number(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "changedByUserId": zod.number(),
+  "fromStatus": zod.string(),
+  "toStatus": zod.string(),
+  "reason": zod.string().nullish(),
+  "changedAt": zod.coerce.date(),
+  "changedByUser": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional()
+})
+
+
+/**
+ * @summary Start a team discussion for a test run
+ */
+export const CreateDiscussionParams = zod.object({
+  "testRunId": zod.coerce.number()
+})
+
+export const CreateDiscussionBody = zod.object({
+  "meetingType": zod.enum(['Defect Review', 'Post-Mortem']),
+  "participantIds": zod.array(zod.number())
+})
+
+
+/**
+ * @summary Get a team discussion with participants
+ */
+export const GetDiscussionParams = zod.object({
+  "discussionId": zod.coerce.number()
+})
+
+export const GetDiscussionResponse = zod.object({
+  "id": zod.number(),
+  "projectId": zod.number(),
+  "testRunId": zod.number(),
+  "initiatedByUserId": zod.number(),
+  "meetingType": zod.enum(['Defect Review', 'Post-Mortem']),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "endedAt": zod.coerce.date().nullish(),
+  "participants": zod.array(zod.object({
+  "id": zod.number(),
+  "discussionId": zod.number(),
+  "userId": zod.number(),
+  "canAddNotes": zod.boolean(),
+  "addedAt": zod.coerce.date(),
+  "user": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional(),
+  "initiatedBy": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})
+
+
+/**
+ * @summary End a team discussion (Test Lead/Admin)
+ */
+export const EndDiscussionParams = zod.object({
+  "discussionId": zod.coerce.number()
+})
+
+export const EndDiscussionResponse = zod.object({
+  "id": zod.number(),
+  "projectId": zod.number(),
+  "testRunId": zod.number(),
+  "initiatedByUserId": zod.number(),
+  "meetingType": zod.enum(['Defect Review', 'Post-Mortem']),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "endedAt": zod.coerce.date().nullish(),
+  "participants": zod.array(zod.object({
+  "id": zod.number(),
+  "discussionId": zod.number(),
+  "userId": zod.number(),
+  "canAddNotes": zod.boolean(),
+  "addedAt": zod.coerce.date(),
+  "user": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional(),
+  "initiatedBy": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})
+
+
+/**
+ * @summary Add a participant to a discussion
+ */
+export const AddParticipantParams = zod.object({
+  "discussionId": zod.coerce.number()
+})
+
+export const addParticipantBodyCanAddNotesDefault = false;
+
+export const AddParticipantBody = zod.object({
+  "userId": zod.number(),
+  "canAddNotes": zod.boolean().default(addParticipantBodyCanAddNotesDefault)
+})
+
+
+/**
+ * @summary Remove a participant from a discussion
+ */
+export const RemoveParticipantParams = zod.object({
+  "discussionId": zod.coerce.number(),
+  "userId": zod.coerce.number()
+})
+
+export const RemoveParticipantResponse = zod.object({
+  "id": zod.number(),
+  "projectId": zod.number(),
+  "testRunId": zod.number(),
+  "initiatedByUserId": zod.number(),
+  "meetingType": zod.enum(['Defect Review', 'Post-Mortem']),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "endedAt": zod.coerce.date().nullish(),
+  "participants": zod.array(zod.object({
+  "id": zod.number(),
+  "discussionId": zod.number(),
+  "userId": zod.number(),
+  "canAddNotes": zod.boolean(),
+  "addedAt": zod.coerce.date(),
+  "user": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional(),
+  "initiatedBy": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})
+
+
+/**
+ * @summary Get full defect drill-down for a discussion
+ */
+export const GetDiscussionDefectDrilldownParams = zod.object({
+  "discussionId": zod.coerce.number(),
+  "defectId": zod.coerce.number()
+})
+
+export const GetDiscussionDefectDrilldownResponse = zod.object({
+  "id": zod.number(),
+  "testRunId": zod.number(),
+  "testCaseId": zod.number(),
+  "executionId": zod.number(),
+  "testerNotes": zod.string().nullish(),
+  "status": zod.string(),
+  "retestReason": zod.string().nullish(),
+  "acceptedByBusinessNote": zod.string().nullish(),
+  "rejectionLog": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "testCase": zod.object({
+  "id": zod.number(),
+  "useCaseId": zod.number(),
+  "caseNumber": zod.number(),
+  "title": zod.string(),
+  "createdAt": zod.string()
+}).nullish(),
+  "execution": zod.object({
+  "id": zod.number(),
+  "testCaseId": zod.number(),
+  "testRunId": zod.number().nullish(),
+  "iterationNumber": zod.number(),
+  "testerName": zod.string(),
+  "status": zod.string(),
+  "executedAt": zod.string(),
+  "stepResults": zod.array(zod.object({
+  "id": zod.number(),
+  "executionId": zod.number(),
+  "stepId": zod.number(),
+  "actualResult": zod.string().nullish(),
+  "comments": zod.string().nullish(),
+  "passed": zod.boolean().nullish(),
+  "recordedAt": zod.string(),
+  "attachments": zod.array(zod.object({
+  "id": zod.number(),
+  "entityType": zod.string(),
+  "entityId": zod.number(),
+  "field": zod.string(),
+  "fileName": zod.string(),
+  "fileUrl": zod.string(),
+  "fileType": zod.string(),
+  "createdAt": zod.string()
+}))
+})).optional()
+}).nullish(),
+  "notes": zod.array(zod.object({
+  "id": zod.number(),
+  "defectId": zod.number(),
+  "discussionId": zod.number().nullish(),
+  "addedByUserId": zod.number(),
+  "note": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "addedByUser": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "name": zod.string(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "createdAt": zod.string()
+}).nullish()
+})).optional()
+})
 
 
