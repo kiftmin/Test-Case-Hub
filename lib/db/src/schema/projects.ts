@@ -1,6 +1,7 @@
 import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { usersTable } from "./users";
 
 export const projectsTable = pgTable("projects", {
   id: serial("id").primaryKey(),
@@ -12,8 +13,9 @@ export const projectsTable = pgTable("projects", {
   testLink: text("test_link"),
   version: integer("version").notNull().default(1),
   versionDate: text("version_date").notNull(),
-  isSignedOff: integer("is_signed_off").notNull().default(0), // 0 = false, 1 = true
-  signOffData: text("sign_off_data"), // JSON string
+  testLeadId: integer("test_lead_id").references(() => usersTable.id, { onDelete: "set null" }),
+  isSignedOff: integer("is_signed_off").notNull().default(0),
+  signOffData: text("sign_off_data"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
