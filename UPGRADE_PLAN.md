@@ -4,6 +4,25 @@ This document details every step required to upgrade the existing Test Case Hub 
 
 ---
 
+## Task Breakdown (Implementation Order)
+
+| Task | Plan Steps | Description | Status |
+|------|-----------|-------------|--------|
+| **1** | §1 | DB schema — 6 new tables + modify existing (executions, projects, users) | ✅ Done |
+| **2** | §2 | Role migration script + seed updates + run migration | ✅ Done |
+| **3** | §3, §5, §26 | Auth middleware (SESSION_SECRET, project-role helper) + register + user edit/delete API | ⬜ |
+| **4** | §7, §8, §10, §13 | Defect + Bug API routes + attachments list + auto-defect on execution | ⬜ |
+| **5** | §9, §11 | Team Discussion API + Developer bug dashboard API | ⬜ |
+| **6** | §6, §12, §14 | Projects API (test lead, permissions) + dual sign-off + passed_by_agreement | ⬜ |
+| **7** | §4, §15 | OpenAPI spec update + codegen + typecheck | ⬜ |
+| **8** | §16, §17, §18, §19 | Frontend: role badges, user mgmt, project forms, project users | ⬜ |
+| **9** | §20 | Frontend: Defect Log page | ⬜ |
+| **10** | §21 | Frontend: Bug List page | ⬜ |
+| **11** | §22 | Frontend: Team Discussion UI | ⬜ |
+| **12** | §23, §24, §25 | Frontend: Dashboard (dev widget), Sign-off updates, Tester inline defects | ⬜ |
+
+---
+
 ## Table of Contents
 
 1. [Database Schema Upgrades](#1-database-schema-upgrades)
