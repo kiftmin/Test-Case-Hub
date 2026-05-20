@@ -10,8 +10,8 @@
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
     "push-force": "drizzle-kit push --force --config ./drizzle.config.ts",
-    "seed": "node --env-file=.env seed_users.ts",
-    "migrate-roles": "node --env-file=.env migrate_roles.ts"
+    "seed": "pnpm -w exec tsx --env-file=.env seed_users.ts",
+    "migrate-roles": "pnpm -w exec tsx --env-file=.env migrate_roles.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
