@@ -189,7 +189,7 @@ export default function ProjectDetail() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            {user?.role !== 'TESTER' && (
+            {isOwnerOrAdmin && (
               <Link href={`/projects/${id}/users`}>
                 <Button variant="outline" size="sm">
                   <Users className="w-4 h-4 mr-2" />
@@ -203,7 +203,7 @@ export default function ProjectDetail() {
                 Test Runs
               </Button>
             </Link>
-            {user?.role !== 'TESTER' && (
+            {isAuthorOrAdmin && (
               <>
                 <Link href={`/projects/${id}/stats`}>
                   <Button variant="outline" size="sm">
