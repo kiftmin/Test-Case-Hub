@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, executionsTable, attachmentsTable, stepResultsTable, testRunsTable, testRunUseCasesTable, testCasesTable, usersTable } from "@workspace/db";
+import { db, executionsTable, attachmentsTable, stepResultsTable, testRunsTable, testRunUseCasesTable, testCasesTable, usersTable, defectsTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 import { CreateExecutionBody, UpdateStepResultBody } from "@workspace/api-zod";
 import { authenticate } from "../middlewares/auth";
@@ -188,6 +188,28 @@ router.put("/executions/:executionId", authenticate, async (req, res) => {
             return res.status(403).json({ error: "You are not authorized to update this execution" });
           }
         }
+      }
+    }
+
+    if (body.status === "failed" && updated.testRunId) {
+      const existingDefect = await db.query.defectsTable.findFirst({
+        where: eq(defectsTable.executionId, executionId),
+      });
+      if (!existingDefect) {
+        const stepResultsForNotes = await db.query.stepResultsTable.findMany({
+          where: eq(stepResultsTable.executionId, executionId),
+        });
+        const stepComments = stepResultsForNotes
+          .filter(sr => sr.comments)
+          .map(sr => `Step: ${sr.comments}`)
+          .join("\n");
+        await db.insert(defectsTable).values({
+          testRunId: updated.testRunId,
+          testCaseId: updated.testCaseId,
+          executionId,
+          testerNotes: [updated.notes, stepComments].filter(Boolean).join("\n\n"),
+          status: "New Defect",
+        });
       }
     }
 

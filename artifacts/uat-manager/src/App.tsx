@@ -19,7 +19,13 @@ import TestRunList from "@/pages/projects/TestRunList";
 import TestRunDetail from "@/pages/projects/TestRunDetail";
 import UserManagement from "@/pages/Users";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+    },
+  },
+});
 
 function Router() {
   return (

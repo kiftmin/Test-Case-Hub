@@ -349,8 +349,8 @@ router.patch("/test-runs/:testRunId/use-cases/:testRunUseCaseId", authenticate, 
 
     const updateData: Partial<typeof existing> = {};
 
-    // Authorization check for TESTER role
-    if (req.user?.role === 'TESTER') {
+    // Authorization check for USER role
+    if (req.user?.role === 'USER') {
       if (body.freePass !== undefined || body.assignedTesterId !== undefined) {
         return res.status(403).json({ error: "Testers cannot modify assignments or free pass status" });
       }

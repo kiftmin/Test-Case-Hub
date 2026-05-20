@@ -1,9 +1,31 @@
 import { Router } from "express";
 import { db, attachmentsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { CreateAttachmentBody } from "@workspace/api-zod";
+import { authenticate } from "../middlewares/auth";
 
 const router = Router();
+
+router.get("/attachments/:entityType/:entityId", authenticate, async (req, res) => {
+  try {
+    const entityType = req.params.entityType as string;
+    const entityId = parseInt(req.params.entityId as string);
+    if (isNaN(entityId)) return res.status(400).json({ error: "Invalid entity ID" });
+
+    const attachments = await db.query.attachmentsTable.findMany({
+      where: and(
+        eq(attachmentsTable.entityType, entityType),
+        eq(attachmentsTable.entityId, entityId),
+      ),
+      orderBy: desc(attachmentsTable.createdAt),
+    });
+
+    res.json(attachments.map(a => ({ ...a, createdAt: a.createdAt.toISOString() })));
+  } catch (err) {
+    req.log.error({ err }, "Failed to list attachments");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 router.post("/attachments", async (req, res) => {
   try {

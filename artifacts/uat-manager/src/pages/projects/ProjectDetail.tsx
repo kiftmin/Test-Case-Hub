@@ -138,7 +138,7 @@ export default function ProjectDetail() {
         }
         actions={
           <>
-            {(project as any).isSignedOff === 1 && user?.role !== "TESTER" ? (
+            {(project as any).isSignedOff === 1 && user?.role !== "USER" ? (
               <Dialog open={showCertificate} onOpenChange={setShowCertificate}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm" className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:text-green-800">

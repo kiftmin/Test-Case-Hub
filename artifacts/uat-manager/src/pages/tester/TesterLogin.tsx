@@ -34,7 +34,7 @@ export default function TesterLogin() {
         import("@/lib/auth").then(({ setAuth }) => {
           setAuth(token, user);
           
-          if (user.role === "TESTER") {
+          if (user.role === "USER") {
             setLocation("/tester/dashboard");
           } else {
             setLocation("/");

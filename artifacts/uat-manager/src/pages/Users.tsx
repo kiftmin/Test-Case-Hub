@@ -24,7 +24,7 @@ export default function UserManagement() {
     password: "",
     name: "",
     email: "",
-    role: "TESTER"
+    role: "USER"
   });
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -38,7 +38,7 @@ export default function UserManagement() {
       });
       toast.success("User created successfully");
       setIsOpen(false);
-      setFormData({ username: "", password: "", name: "", email: "", role: "TESTER" });
+      setFormData({ username: "", password: "", name: "", email: "", role: "USER" });
       queryClient.invalidateQueries({ queryKey: ["users"] });
     } catch (err) {
       toast.error("Failed to create user");
@@ -90,7 +90,8 @@ export default function UserManagement() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="ADMIN">Administrator</SelectItem>
-                      <SelectItem value="TESTER">Tester</SelectItem>
+                      <SelectItem value="USER">User</SelectItem>
+<SelectItem value="AUTHOR">Author</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

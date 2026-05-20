@@ -61,7 +61,7 @@ export function Sidebar() {
           </div>
           <div className="flex-1 overflow-hidden">
             <p className="truncate text-sidebar-foreground">{user?.name || "User"}</p>
-            <p className="truncate text-[10px] text-sidebar-foreground/50">{user?.role || "Tester"}</p>
+            <p className="truncate text-[10px] text-sidebar-foreground/50">{user?.role || "User"}</p>
           </div>
         </div>
       </div>

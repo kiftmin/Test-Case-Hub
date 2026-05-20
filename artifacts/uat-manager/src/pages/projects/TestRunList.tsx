@@ -238,7 +238,7 @@ export default function TestRunList() {
         title="Test Runs"
         description="Schedule and manage test runs for this project."
         actions={
-          user?.role !== 'TESTER' && (
+          user?.role !== 'USER' && (
             <Button size="sm" onClick={() => setShowCreate(true)}>
               <Plus className="w-4 h-4 mr-2" /> New Test Run
             </Button>
@@ -259,7 +259,7 @@ export default function TestRunList() {
           <p className="text-muted-foreground mt-1 text-sm">
             Create your first test run to get started.
           </p>
-          {user?.role !== 'TESTER' && (
+          {user?.role !== 'USER' && (
             <Button size="sm" className="mt-4" onClick={() => setShowCreate(true)}>
               <Plus className="w-4 h-4 mr-2" /> New Test Run
             </Button>

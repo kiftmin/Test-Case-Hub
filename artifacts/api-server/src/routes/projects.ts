@@ -71,7 +71,7 @@ async function buildProjectDetail(projectId: number, userRole?: string) {
   // Manual assembly
   const result = {
     ...project,
-    signOffData: userRole === "TESTER" ? null : project.signOffData,
+    signOffData: userRole === "USER" ? null : project.signOffData,
     createdAt: project.createdAt.toISOString(),
     updatedAt: project.updatedAt.toISOString(),
     useCases: useCases.map(uc => {

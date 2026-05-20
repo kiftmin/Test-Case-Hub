@@ -206,8 +206,8 @@ router.get("/dashboard/recent-activity", authenticate, async (req, res) => {
         orderBy: desc(executionsTable.executedAt),
         limit: 20,
       });
-    } else if (req.user?.role === "TESTER") {
-      // Tester sees only their own executions
+    } else if (req.user?.role === "USER") {
+      // USER sees only their own executions
       const user = await db.query.usersTable.findFirst({
         where: eq(usersTable.id, req.user!.userId),
       });

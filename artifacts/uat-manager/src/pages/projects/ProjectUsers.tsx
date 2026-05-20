@@ -34,7 +34,7 @@ export default function ProjectUsers() {
   const removeMutation = useRemoveUserFromProject();
   
   const [selectedUserId, setSelectedUserId] = useState<string>("");
-  const [selectedRole, setSelectedRole] = useState<string>("TESTER");
+  const [selectedRole, setSelectedRole] = useState<string>("TEST_LEAD");
 
   const handleAssign = async () => {
     if (!selectedUserId) return;
@@ -93,7 +93,7 @@ export default function ProjectUsers() {
       
       <PageHeader 
         title={`Manage Users: ${project.name}`} 
-        description="Assign authors and testers to this project."
+        description="Assign users to this project with role-based permissions."
       />
 
       <div className="grid gap-6 md:grid-cols-[1fr_350px]">
@@ -121,9 +121,9 @@ export default function ProjectUsers() {
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-muted text-xs font-medium">
-                        {assignment.role === "AUTHOR" ? (
+                        {assignment.role === "TEST_AUTHOR" ? (
                           <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
-                        ) : assignment.role === "OWNER" ? (
+                        ) : assignment.role === "BUSINESS_OWNER" ? (
                           <ShieldCheck className="w-3.5 h-3.5 text-purple-500" />
                         ) : (
                           <Shield className="w-3.5 h-3.5 text-green-500" />
@@ -182,9 +182,9 @@ export default function ProjectUsers() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="TESTER">TESTER</SelectItem>
-                  <SelectItem value="AUTHOR">AUTHOR</SelectItem>
-                  <SelectItem value="OWNER">OWNER</SelectItem>
+                  <SelectItem value="TEST_LEAD">Test Lead</SelectItem>
+                  <SelectItem value="TEST_AUTHOR">Test Author</SelectItem>
+                  <SelectItem value="BUSINESS_OWNER">Business Owner</SelectItem>
                 </SelectContent>
               </Select>
             </div>
