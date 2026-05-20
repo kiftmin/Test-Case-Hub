@@ -5,7 +5,8 @@ async function seed() {
   console.log("Seeding users...");
   
   const adminPassword = await bcrypt.hash("admin123", 10);
-  const testerPassword = await bcrypt.hash("tester123", 10);
+  const authorPassword = await bcrypt.hash("author123", 10);
+  const userPassword = await bcrypt.hash("user123", 10);
   
   await db.insert(usersTable).values([
     {
@@ -16,11 +17,18 @@ async function seed() {
       role: "ADMIN"
     },
     {
-      username: "tester1",
-      passwordHash: testerPassword,
-      name: "John Tester",
-      email: "john@example.com",
-      role: "TESTER"
+      username: "author1",
+      passwordHash: authorPassword,
+      name: "Sarah Author",
+      email: "sarah@example.com",
+      role: "AUTHOR"
+    },
+    {
+      username: "user1",
+      passwordHash: userPassword,
+      name: "Jane User",
+      email: "jane@example.com",
+      role: "USER"
     }
   ]).onConflictDoNothing();
   
