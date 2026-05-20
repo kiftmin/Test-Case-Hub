@@ -14,7 +14,7 @@ import {
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Edit2, Plus, LayoutList, Users, Download, FileJson, FileText, CalendarClock, CheckCircle2, ShieldCheck, AlertTriangle, Bug } from "lucide-react";
+import { ChevronLeft, Edit2, Plus, LayoutList, Users, Download, FileJson, FileText, CalendarClock, CheckCircle2, ShieldCheck, AlertTriangle, Bug, MoreHorizontal, ChevronDown } from "lucide-react";
 import { exportProjectToPDF, exportProjectToExcel } from "@/lib/export-utils";
 import {
   DropdownMenu,
@@ -139,113 +139,107 @@ export default function ProjectDetail() {
           </div>
         }
         actions={
-          <>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Primary: Sign-off (prominent green) */}
             {(project as any).isSignedOff === 1 && user?.role !== "USER" ? (
               <Dialog open={showCertificate} onOpenChange={setShowCertificate}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm" className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:text-green-800">
                     <ShieldCheck className="w-4 h-4 mr-2" />
-                    Sign-off Certificate
+                    Certificate
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Project Sign-off Certificate</DialogTitle>
-                  </DialogHeader>
+                  <DialogHeader><DialogTitle>Project Sign-off Certificate</DialogTitle></DialogHeader>
                   {showCertificate && lastRunReport && (
-                    <SignOffCertificate
-                      project={project}
-                      signOffData={signOffData}
-                      lastRun={lastRunReport}
-                    />
+                    <SignOffCertificate project={project} signOffData={signOffData} lastRun={lastRunReport} />
                   )}
                 </DialogContent>
               </Dialog>
             ) : (
               (isTestLead || isBusinessOwner) && (
-                <Button
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700"
-                  onClick={() => setShowSignOff(true)}
-                >
+                <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => setShowSignOff(true)}>
                   <CheckCircle2 className="w-4 h-4 mr-2" />
-                  Sign Off Project
+                  Sign Off
                 </Button>
               )
             )}
-            {lastCompletedRunId ? (
-              <Link href={`/projects/${id}/test-runs/${lastCompletedRunId}/defects`}>
-                <Button variant="outline" size="sm">
-                  <AlertTriangle className="w-4 h-4 mr-2" />
-                  Defects
-                </Button>
-              </Link>
-            ) : (
-              <Button variant="outline" size="sm" disabled title="No completed test run">
-                <AlertTriangle className="w-4 h-4 mr-2" />
-                Defects
-              </Button>
-            )}
-            <Link href={`/projects/${id}/bugs`}>
-              <Button variant="outline" size="sm">
-                <Bug className="w-4 h-4 mr-2" />
-                Bugs
-              </Button>
-            </Link>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Download className="w-4 h-4 mr-2" />
-                  Export Plan
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => exportProjectToPDF(project)}>
-                  <FileText className="w-4 h-4 mr-2" />
-                  Download PDF
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportProjectToExcel(project)}>
-                  <FileJson className="w-4 h-4 mr-2" />
-                  Download Excel
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {isTestLead && (
-              <Link href={`/projects/${id}/users`}>
-                <Button variant="outline" size="sm">
-                  <Users className="w-4 h-4 mr-2" />
-                  Manage Users
-                </Button>
-              </Link>
-            )}
-            <Link href={`/projects/${id}/test-runs`}>
-              <Button variant="outline" size="sm">
-                <CalendarClock className="w-4 h-4 mr-2" />
-                Test Runs
-              </Button>
-            </Link>
-            {isAuthorOrAdmin && (
-              <>
-                <Link href={`/projects/${id}/stats`}>
-                  <Button variant="outline" size="sm">
-                    <LayoutList className="w-4 h-4 mr-2" />
-                    Analytics
-                  </Button>
-                </Link>
-                <Link href={`/projects/${id}/edit`}>
-                  <Button variant="outline" size="sm">
-                    <Edit2 className="w-4 h-4 mr-2" />
-                    Edit Metadata
-                  </Button>
-                </Link>
-              </>
-            )}
+
+            {/* Primary: Tester Portal */}
             <Link href={`/tester`} target="_blank">
               <Button size="sm">
                 Tester Portal
               </Button>
             </Link>
-          </>
+
+            {/* More dropdown — grouped secondary actions */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <MoreHorizontal className="w-4 h-4 mr-2" />
+                  <ChevronDown className="w-3 h-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                {/* Testing section */}
+                <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Testing</div>
+                <DropdownMenuItem asChild>
+                  <Link href={`/projects/${id}/test-runs`} className="cursor-pointer">
+                    <CalendarClock className="w-4 h-4 mr-2" /> Test Runs
+                  </Link>
+                </DropdownMenuItem>
+                {lastCompletedRunId ? (
+                  <DropdownMenuItem asChild>
+                    <Link href={`/projects/${id}/test-runs/${lastCompletedRunId}/defects`} className="cursor-pointer">
+                      <AlertTriangle className="w-4 h-4 mr-2" /> Defects
+                    </Link>
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem disabled>
+                    <AlertTriangle className="w-4 h-4 mr-2" /> Defects (no run)
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem asChild>
+                  <Link href={`/projects/${id}/bugs`} className="cursor-pointer">
+                    <Bug className="w-4 h-4 mr-2" /> Bugs
+                  </Link>
+                </DropdownMenuItem>
+                {isAuthorOrAdmin && (
+                  <DropdownMenuItem asChild>
+                    <Link href={`/projects/${id}/stats`} className="cursor-pointer">
+                      <LayoutList className="w-4 h-4 mr-2" /> Analytics
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+
+                {/* Administration section */}
+                <div className="px-2 py-1.5 mt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-t">Administration</div>
+                {isTestLead && (
+                  <DropdownMenuItem asChild>
+                    <Link href={`/projects/${id}/users`} className="cursor-pointer">
+                      <Users className="w-4 h-4 mr-2" /> Manage Users
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                {isAuthorOrAdmin && (
+                  <DropdownMenuItem asChild>
+                    <Link href={`/projects/${id}/edit`} className="cursor-pointer">
+                      <Edit2 className="w-4 h-4 mr-2" /> Edit Metadata
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+
+                {/* Export section */}
+                <div className="px-2 py-1.5 mt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-t">Export</div>
+                <DropdownMenuItem onClick={() => exportProjectToPDF(project)}>
+                  <FileText className="w-4 h-4 mr-2" /> Download PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportProjectToExcel(project)}>
+                  <FileJson className="w-4 h-4 mr-2" /> Download Excel
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         }
       />
 
