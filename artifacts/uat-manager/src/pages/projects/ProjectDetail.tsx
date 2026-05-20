@@ -173,12 +173,19 @@ export default function ProjectDetail() {
                 </Button>
               )
             )}
-            <Link href={`/projects/${id}/defects`}>
-              <Button variant="outline" size="sm">
+            {lastCompletedRunId ? (
+              <Link href={`/projects/${id}/test-runs/${lastCompletedRunId}/defects`}>
+                <Button variant="outline" size="sm">
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  Defects
+                </Button>
+              </Link>
+            ) : (
+              <Button variant="outline" size="sm" disabled title="No completed test run">
                 <AlertTriangle className="w-4 h-4 mr-2" />
                 Defects
               </Button>
-            </Link>
+            )}
             <Link href={`/projects/${id}/bugs`}>
               <Button variant="outline" size="sm">
                 <Bug className="w-4 h-4 mr-2" />

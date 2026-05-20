@@ -16,7 +16,7 @@ export function Sidebar() {
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
     { name: "Projects", href: "/projects", icon: FolderKanban },
     ...(projectId ? [
-      { name: "Defects", href: `/projects/${projectId}/defects`, icon: AlertTriangle },
+      { name: "Defects", href: `/projects/${projectId}/test-runs`, icon: AlertTriangle },
       { name: "Bugs", href: `/projects/${projectId}/bugs`, icon: Bug },
     ] : []),
     ...(user?.role === 'ADMIN' ? [{ name: "Users", href: "/users", icon: UserPlus }] : []),

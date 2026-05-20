@@ -17,6 +17,8 @@ import TestExecutionView from "@/pages/tester/TestExecutionView";
 import ProjectUsers from "@/pages/projects/ProjectUsers";
 import TestRunList from "@/pages/projects/TestRunList";
 import TestRunDetail from "@/pages/projects/TestRunDetail";
+import DefectLog from "@/pages/projects/DefectLog";
+import BugList from "@/pages/projects/BugList";
 import UserManagement from "@/pages/Users";
 
 const queryClient = new QueryClient({
@@ -38,6 +40,8 @@ function Router() {
       <Route path="/projects/:projectId/users" component={ProjectUsers} />
       <Route path="/projects/:projectId/test-runs" component={TestRunList} />
       <Route path="/projects/:projectId/test-runs/:testRunId" component={TestRunDetail} />
+      <Route path="/projects/:projectId/test-runs/:testRunId/defects" component={DefectLog} />
+      <Route path="/projects/:projectId/bugs" component={BugList} />
       <Route path="/users" component={UserManagement} />
       <Route path="/projects/:projectId" component={ProjectDetail} />
       <Route path="/tester" component={TesterLogin} />
