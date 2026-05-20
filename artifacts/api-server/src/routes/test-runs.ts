@@ -50,7 +50,7 @@ const ReRunBody = z.object({
 // ──────────────────────────────────────────────────────────────────
 
 /** Recalculates and persists the overall pass/fail for a completed test run. */
-async function recalculateTestRunResult(testRunId: number) {
+export async function recalculateTestRunResult(testRunId: number) {
   const ucRows = await db.query.testRunUseCasesTable.findMany({
     where: eq(testRunUseCasesTable.testRunId, testRunId),
   });
