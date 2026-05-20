@@ -111,7 +111,7 @@ describe("authorize middleware", () => {
   });
 
   it("returns 403 when the user does not have the required role", () => {
-    const req = mockReq({ user: { userId: 2, username: "tester", role: "TESTER" } });
+    const req = mockReq({ user: { userId: 2, username: "user1", role: "USER" } });
     const res = mockRes();
     const next = vi.fn();
 
