@@ -14,6 +14,7 @@ import authRouter from "./auth";
 import testRunsRouter from "./test-runs";
 import defectsRouter from "./defects";
 import bugsRouter from "./bugs";
+import teamDiscussionsRouter from "./team-discussions";
 import { authenticate } from "../middlewares/auth";
 
 
@@ -44,6 +45,7 @@ router.use(assignmentsRouter);
 router.use(testRunsRouter);
 router.use(defectsRouter);
 router.use(bugsRouter);
+router.use(teamDiscussionsRouter);
 
 
 export default router;

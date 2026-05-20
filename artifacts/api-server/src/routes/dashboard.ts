@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, projectsTable, testCasesTable, executionsTable, useCasesTable, testStepsTable, stepResultsTable, projectAssignmentsTable, usersTable } from "@workspace/db";
+import { db, projectsTable, testCasesTable, executionsTable, useCasesTable, testStepsTable, stepResultsTable, projectAssignmentsTable, usersTable, bugsTable } from "@workspace/db";
 import { eq, desc, count, and, isNotNull, gte, inArray } from "drizzle-orm";
 import { authenticate } from "../middlewares/auth";
 
@@ -282,6 +282,48 @@ router.get("/dashboard/recent-activity", authenticate, async (req, res) => {
     res.json(result);
   } catch (err) {
     req.log.error({ err }, "Failed to get recent activity");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/dashboard/developer/:userId/bugs", authenticate, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId as string);
+    if (isNaN(userId)) return res.status(400).json({ error: "Invalid user ID" });
+
+    const bugs = await db.query.bugsTable.findMany({
+      where: eq(bugsTable.assignedDeveloperId, userId),
+      with: {
+        defect: {
+          with: {
+            testCase: true,
+            testRun: {
+              with: {
+                project: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: desc(bugsTable.updatedAt),
+    });
+
+    res.json(bugs.map(b => ({
+      id: b.id,
+      bugNumber: b.bugNumber,
+      status: b.status,
+      supportTicketNumber: b.supportTicketNumber,
+      developerNotes: b.developerNotes,
+      projectName: b.defect?.testRun?.project?.name ?? "Unknown",
+      testCaseTitle: b.defect?.testCase?.title ?? "Unknown",
+      defectId: b.defectId,
+      openedAt: b.openedAt.toISOString(),
+      assignedAt: b.assignedAt?.toISOString() ?? null,
+      resolvedAt: b.resolvedAt?.toISOString() ?? null,
+      updatedAt: b.updatedAt.toISOString(),
+    })));
+  } catch (err) {
+    req.log.error({ err }, "Failed to get developer bugs");
     res.status(500).json({ error: "Internal server error" });
   }
 });
