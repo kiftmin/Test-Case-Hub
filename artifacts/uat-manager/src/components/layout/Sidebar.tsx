@@ -1,15 +1,24 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, FolderKanban, PlaySquare, Settings, LogOut, UserPlus } from "lucide-react";
+import { LayoutDashboard, FolderKanban, PlaySquare, UserPlus, Bug, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAuthUser } from "@/lib/auth";
+import { roleBadgeClass, roleLabel } from "@/lib/role-utils";
 
 export function Sidebar() {
   const [location] = useLocation();
   const user = getAuthUser();
 
+  // Extract projectId from URL for project-context nav items
+  const projectMatch = location.match(/\/projects\/(\d+)/);
+  const projectId = projectMatch ? projectMatch[1] : null;
+
   const navigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
     { name: "Projects", href: "/projects", icon: FolderKanban },
+    ...(projectId ? [
+      { name: "Defects", href: `/projects/${projectId}/defects`, icon: AlertTriangle },
+      { name: "Bugs", href: `/projects/${projectId}/bugs`, icon: Bug },
+    ] : []),
     ...(user?.role === 'ADMIN' ? [{ name: "Users", href: "/users", icon: UserPlus }] : []),
     { name: "Tester Portal", href: "/tester", icon: PlaySquare },
   ];
@@ -59,9 +68,13 @@ export function Sidebar() {
           <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center text-sidebar-foreground uppercase text-xs">
             {user?.name?.substring(0, 2) || "U"}
           </div>
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-hidden min-w-0">
             <p className="truncate text-sidebar-foreground">{user?.name || "User"}</p>
-            <p className="truncate text-[10px] text-sidebar-foreground/50">{user?.role || "User"}</p>
+            {user?.role && (
+              <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider border ${roleBadgeClass(user.role)}`}>
+                {roleLabel(user.role)}
+              </span>
+            )}
           </div>
         </div>
       </div>

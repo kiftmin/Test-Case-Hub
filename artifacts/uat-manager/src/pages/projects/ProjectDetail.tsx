@@ -14,13 +14,13 @@ import {
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Edit2, Plus, LayoutList, Users, Download, FileJson, FileText, CalendarClock, CheckCircle2, ShieldCheck } from "lucide-react";
+import { ChevronLeft, Edit2, Plus, LayoutList, Users, Download, FileJson, FileText, CalendarClock, CheckCircle2, ShieldCheck, AlertTriangle, Bug } from "lucide-react";
 import { exportProjectToPDF, exportProjectToExcel } from "@/lib/export-utils";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { UseCaseTree } from "@/components/projects/UseCaseTree";
 import { TestCaseEditor } from "@/components/projects/TestCaseEditor";
@@ -37,7 +37,7 @@ export default function ProjectDetail() {
   const id = parseInt(projectId || "0", 10);
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  
+
   const [selectedTestCaseId, setSelectedTestCaseId] = useState<number | null>(null);
   const [showSignOff, setShowSignOff] = useState(false);
   const [showCertificate, setShowCertificate] = useState(false);
@@ -55,8 +55,10 @@ export default function ProjectDetail() {
   });
 
   const projectRole = assignments.find(a => a.userId === user?.id)?.role;
-  const isOwnerOrAdmin = user?.role === "ADMIN" || projectRole === "OWNER";
-  const isAuthorOrAdmin = user?.role === "ADMIN" || projectRole === "AUTHOR";
+  const isAdmin = user?.role === "ADMIN";
+  const isTestLead = isAdmin || projectRole === "TEST_LEAD";
+  const isBusinessOwner = projectRole === "BUSINESS_OWNER";
+  const isAuthorOrAdmin = isAdmin || projectRole === "TEST_AUTHOR";
   const isSignedOff = (project as any)?.isSignedOff === 1;
 
   const signOffData = (project as any)?.signOffData ? JSON.parse((project as any).signOffData) : null;
@@ -123,9 +125,9 @@ export default function ProjectDetail() {
           </Button>
         </Link>
       </div>
-      
-      <PageHeader 
-        title={project.name} 
+
+      <PageHeader
+        title={project.name}
         description={
           <div className="flex items-center gap-4 mt-1">
             <span className="text-sm text-muted-foreground">Code: {project.projectCode} • Version {project.version}.0</span>
@@ -160,7 +162,7 @@ export default function ProjectDetail() {
                 </DialogContent>
               </Dialog>
             ) : (
-              isOwnerOrAdmin && (
+              (isTestLead || isBusinessOwner) && (
                 <Button
                   size="sm"
                   className="bg-green-600 hover:bg-green-700"
@@ -171,6 +173,18 @@ export default function ProjectDetail() {
                 </Button>
               )
             )}
+            <Link href={`/projects/${id}/defects`}>
+              <Button variant="outline" size="sm">
+                <AlertTriangle className="w-4 h-4 mr-2" />
+                Defects
+              </Button>
+            </Link>
+            <Link href={`/projects/${id}/bugs`}>
+              <Button variant="outline" size="sm">
+                <Bug className="w-4 h-4 mr-2" />
+                Bugs
+              </Button>
+            </Link>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -189,7 +203,7 @@ export default function ProjectDetail() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            {isOwnerOrAdmin && (
+            {isTestLead && (
               <Link href={`/projects/${id}/users`}>
                 <Button variant="outline" size="sm">
                   <Users className="w-4 h-4 mr-2" />
@@ -234,15 +248,15 @@ export default function ProjectDetail() {
             Use Cases
           </div>
           <div className="flex-1 overflow-y-auto p-2">
-            <UseCaseTree 
-              project={project} 
+            <UseCaseTree
+              project={project}
               selectedTestCaseId={selectedTestCaseId}
               onSelectTestCase={setSelectedTestCaseId}
               readOnly={isSignedOff || !isAuthorOrAdmin}
             />
           </div>
         </Card>
-        
+
         <Card className="flex-1 flex flex-col overflow-hidden border-border bg-card">
           {selectedTestCaseId ? (
             <TestCaseEditor testCaseId={selectedTestCaseId} readOnly={isSignedOff || !isAuthorOrAdmin} />

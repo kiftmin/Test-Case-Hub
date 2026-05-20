@@ -12,7 +12,10 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useListUsers } from "@workspace/api-client-react";
 import { TestProjectDetail } from "@workspace/api-client-react";
+import { getAuthUser } from "@/lib/auth";
 
 const projectSchema = z.object({
   name: z.string().min(1, "Project name is required"),
@@ -20,17 +23,21 @@ const projectSchema = z.object({
   moduleName: z.string().min(1, "Module name is required"),
   designDate: z.string().min(1, "Design date is required"),
   testLink: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+  testLeadId: z.string().optional(),
 });
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
 
 interface ProjectFormProps {
   initialData?: TestProjectDetail;
-  onSubmit: (data: ProjectFormValues) => void;
+  onSubmit: (data: ProjectFormValues & { testLeadId?: number }) => void;
   isSubmitting?: boolean;
 }
 
 export function ProjectForm({ initialData, onSubmit, isSubmitting }: ProjectFormProps) {
+  const currentUser = getAuthUser();
+  const { data: users } = useListUsers({ query: { enabled: currentUser?.role === "ADMIN" } });
+
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
     defaultValues: {
@@ -39,12 +46,20 @@ export function ProjectForm({ initialData, onSubmit, isSubmitting }: ProjectForm
       moduleName: initialData?.moduleName || "",
       designDate: initialData?.designDate || new Date().toISOString().split('T')[0],
       testLink: initialData?.testLink || "",
+      testLeadId: (initialData as any)?.testLeadId?.toString() || "",
     },
   });
 
+  const handleSubmit = (values: ProjectFormValues) => {
+    onSubmit({
+      ...values,
+      testLeadId: values.testLeadId ? parseInt(values.testLeadId, 10) : undefined,
+    });
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <div className="grid gap-6 md:grid-cols-2">
           <FormField
             control={form.control}
@@ -116,6 +131,34 @@ export function ProjectForm({ initialData, onSubmit, isSubmitting }: ProjectForm
               </FormItem>
             )}
           />
+
+          {currentUser?.role === "ADMIN" && (
+            <FormField
+              control={form.control}
+              name="testLeadId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Test Lead</FormLabel>
+                  <FormControl>
+                    <Select value={field.value || ""} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a Test Lead..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {users?.map((u) => (
+                          <SelectItem key={u.id} value={u.id.toString()}>
+                            {u.name} ({u.username})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormDescription>The Test Lead will manage this project's test runs</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
         </div>
 
         <div className="flex justify-end gap-3">

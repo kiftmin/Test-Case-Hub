@@ -22,15 +22,15 @@ export default function ProjectCreate() {
           <ChevronLeft className="w-4 h-4 mr-1" /> Back to Projects
         </Button>
       </div>
-      
-      <PageHeader 
-        title="Create New Project" 
+
+      <PageHeader
+        title="Create New Project"
         description="Set up a new User Acceptance Testing project to begin defining test cases."
       />
 
       <Card className="max-w-3xl">
         <CardContent className="pt-6">
-          <ProjectForm 
+          <ProjectForm
             isSubmitting={createProject.isPending}
             onSubmit={(data) => {
               createProject.mutate(
@@ -42,10 +42,10 @@ export default function ProjectCreate() {
                     setLocation(`/projects/${project.id}`);
                   },
                   onError: (error) => {
-                    toast({ 
-                      title: "Failed to create project", 
+                    toast({
+                      title: "Failed to create project",
                       description: error.message || "An error occurred",
-                      variant: "destructive" 
+                      variant: "destructive"
                     });
                   }
                 }
