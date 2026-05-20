@@ -3,7 +3,17 @@ import { db, projectsTable, useCasesTable, testCasesTable, testStepsTable, execu
 import { eq, desc, and } from "drizzle-orm";
 import { CreateProjectBody } from "@workspace/api-zod";
 import { nanoid } from "nanoid";
-import { authenticate, authorize } from "../middlewares/auth";
+import { z } from "zod";
+import { authenticate, authorize, authorizeProjectRole } from "../middlewares/auth";
+
+const CreateProjectBodyExtended = CreateProjectBody.extend({
+  testLeadId: z.number().optional(),
+});
+
+const SignOffBody = z.object({
+  role: z.enum(["TEST_LEAD", "BUSINESS_OWNER"]),
+  note: z.string().optional(),
+});
 
 const router = Router();
 
@@ -154,7 +164,7 @@ router.get("/projects", authenticate, async (req, res) => {
 
 router.post("/projects", authenticate, authorize(['ADMIN']), async (req, res) => {
   try {
-    const body = CreateProjectBody.parse(req.body);
+    const body = CreateProjectBodyExtended.parse(req.body);
     const projectCode = generateProjectCode();
     const today = todayStr();
 
@@ -167,10 +177,19 @@ router.post("/projects", authenticate, authorize(['ADMIN']), async (req, res) =>
         moduleName: body.moduleName,
         designDate: body.designDate,
         testLink: body.testLink ?? null,
+        testLeadId: body.testLeadId ?? null,
         version: 1,
         versionDate: today,
       })
       .returning();
+
+    if (body.testLeadId) {
+      await db.insert(projectAssignmentsTable).values({
+        projectId: project.id,
+        userId: body.testLeadId,
+        role: "TEST_LEAD",
+      }).onConflictDoNothing();
+    }
 
     res.status(201).json({
       ...project,
@@ -238,17 +257,34 @@ router.get("/projects/:projectId", authenticate, async (req, res) => {
   }
 });
 
-router.put("/projects/:projectId", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
+router.put("/projects/:projectId", authenticate, authorizeProjectRole(["TEST_LEAD"]), async (req, res) => {
   try {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) return res.status(400).json({ error: "Invalid project ID" });
 
-    const body = CreateProjectBody.parse(req.body);
+    const body = CreateProjectBodyExtended.parse(req.body);
 
     const existing = await db.query.projectsTable.findFirst({
       where: eq(projectsTable.id, projectId),
     });
     if (!existing) return res.status(404).json({ error: "Project not found" });
+
+    if (body.testLeadId !== undefined && body.testLeadId !== existing.testLeadId) {
+      if (existing.testLeadId) {
+        await db.delete(projectAssignmentsTable).where(
+          and(
+            eq(projectAssignmentsTable.projectId, projectId),
+            eq(projectAssignmentsTable.userId, existing.testLeadId),
+            eq(projectAssignmentsTable.role, "TEST_LEAD")
+          )
+        );
+      }
+      await db.insert(projectAssignmentsTable).values({
+        projectId,
+        userId: body.testLeadId,
+        role: "TEST_LEAD",
+      }).onConflictDoNothing();
+    }
 
     const [updated] = await db
       .update(projectsTable)
@@ -258,6 +294,7 @@ router.put("/projects/:projectId", authenticate, authorize(['ADMIN', 'AUTHOR']),
         moduleName: body.moduleName,
         designDate: body.designDate,
         testLink: body.testLink ?? null,
+        testLeadId: body.testLeadId ?? null,
         version: existing.version + 1,
         versionDate: todayStr(),
       })
@@ -275,7 +312,7 @@ router.put("/projects/:projectId", authenticate, authorize(['ADMIN', 'AUTHOR']),
   }
 });
 
-router.delete("/projects/:projectId", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
+router.delete("/projects/:projectId", authenticate, authorize(['ADMIN']), async (req, res) => {
   try {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) return res.status(400).json({ error: "Invalid project ID" });
@@ -290,75 +327,80 @@ router.delete("/projects/:projectId", authenticate, authorize(['ADMIN', 'AUTHOR'
 
 /**
  * POST /projects/:projectId/sign-off
+ * Dual-signature sign-off: both Test Lead and Business Owner must sign.
  */
-router.post("/projects/:projectId/sign-off", async (req, res) => {
+router.post("/projects/:projectId/sign-off", authenticate, async (req, res) => {
   try {
-    const projectId = parseInt(req.params.projectId);
+    const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) return res.status(400).json({ error: "Invalid project ID" });
 
-    const { userId, confirmations } = req.body;
+    const body = SignOffBody.parse(req.body);
 
-    // 1. Verify Project Owner or Admin
-    const user = await db.query.usersTable.findFirst({ where: eq(usersTable.id, userId) });
     const assignment = await db.query.projectAssignmentsTable.findFirst({
       where: and(
         eq(projectAssignmentsTable.projectId, projectId),
-        eq(projectAssignmentsTable.userId, userId)
+        eq(projectAssignmentsTable.userId, req.user!.userId)
       )
     });
 
-    if (user?.role !== "ADMIN" && assignment?.role !== "OWNER") {
-      return res.status(403).json({ error: "Only Project Owner or Admin can sign off" });
+    if (req.user!.role !== "ADMIN" && assignment?.role !== body.role) {
+      return res.status(403).json({ error: `You are not authorized to sign as ${body.role}` });
     }
 
-    // Optional: Check if all use cases passed in the last run
-    // "When project sign-off is selected, the app must look at the last completed test run.
-    // If all use cases passed the sign-off is actioned."
-    // Interpret: If there are failures, they must be "accepted to be fixed after release (workarounds)".
-
-    // 2. Get latest completed test run
-    const lastRun = await db.query.testRunsTable.findFirst({
-      where: and(
-        eq(testRunsTable.projectId, projectId),
-        eq(testRunsTable.status, "completed")
-      ),
-      orderBy: desc(testRunsTable.scheduledAt)
+    const project = await db.query.projectsTable.findFirst({
+      where: eq(projectsTable.id, projectId),
     });
+    if (!project) return res.status(404).json({ error: "Project not found" });
 
-    if (!lastRun) {
-      return res.status(422).json({ error: "No completed test runs found for sign-off" });
-    }
+    const existingData = project.signOffData ? JSON.parse(project.signOffData) : {};
+    const now = new Date().toISOString();
 
-    // 3. Get use cases from the last run to identify failed ones
-    const runUcs = await db.query.testRunUseCasesTable.findMany({
-      where: eq(testRunUseCasesTable.testRunId, lastRun.id)
-    });
-
-    const failedUcs = runUcs.filter(uc => uc.status === "failed");
-
-    // 4. Update project with sign-off status
-    const signOffData = {
-      signedBy: user!.name,
-      signedAt: new Date().toISOString(),
-      lastTestRunId: lastRun.id,
-      confirmations,
-      openIssues: failedUcs.map(uc => ({
-        useCaseId: uc.useCaseId,
-        status: "accepted_workaround"
-      }))
+    const signatureKey = body.role === "TEST_LEAD" ? "testLead" : "businessOwner";
+    existingData[signatureKey] = {
+      signedBy: req.user!.username,
+      signedById: req.user!.userId,
+      signedAt: now,
+      ...(body.note ? { note: body.note } : {}),
     };
 
     await db.update(projectsTable)
       .set({
-        isSignedOff: 1,
-        signOffData: JSON.stringify(signOffData)
+        signOffData: JSON.stringify(existingData),
+        isSignedOff: existingData.testLead && existingData.businessOwner ? 1 : 0,
       })
       .where(eq(projectsTable.id, projectId));
 
-    res.json({ success: true, signOffData });
+    res.json({ success: true, signOffData: existingData });
   } catch (err: any) {
     req.log.error({ err }, "Failed to sign off project");
     res.status(500).json({ error: "Internal server error", details: err.message });
+  }
+});
+
+/**
+ * GET /projects/:projectId/sign-off-status
+ */
+router.get("/projects/:projectId/sign-off-status", authenticate, async (req, res) => {
+  try {
+    const projectId = parseInt(req.params.projectId as string);
+    if (isNaN(projectId)) return res.status(400).json({ error: "Invalid project ID" });
+
+    const project = await db.query.projectsTable.findFirst({
+      where: eq(projectsTable.id, projectId),
+    });
+    if (!project) return res.status(404).json({ error: "Project not found" });
+
+    const signOffData = project.signOffData ? JSON.parse(project.signOffData) : {};
+
+    res.json({
+      isSignedOff: project.isSignedOff === 1,
+      testLeadSigned: !!signOffData.testLead,
+      businessOwnerSigned: !!signOffData.businessOwner,
+      signOffData,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to get sign-off status");
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 

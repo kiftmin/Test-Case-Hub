@@ -36,7 +36,7 @@ const UpdateTestRunBody = z.object({
 const UpdateTestRunUseCaseBody = z.object({
   assignedTesterId: z.number().nullable().optional(),
   freePass: z.boolean().optional(),
-  status: z.enum(["pending", "in_progress", "passed", "failed"]).optional(),
+  status: z.enum(["pending", "in_progress", "passed", "failed", "passed_by_agreement"]).optional(),
 });
 
 const ReRunBody = z.object({
@@ -57,13 +57,14 @@ export async function recalculateTestRunResult(testRunId: number) {
 
   if (ucRows.length === 0) return;
 
-  const allExecuted = ucRows.every((uc) => uc.status === "passed" || uc.status === "failed");
+  const finishedStatuses = ["passed", "failed", "passed_by_agreement"];
+  const allExecuted = ucRows.every((uc) => finishedStatuses.includes(uc.status));
   if (!allExecuted) return; // not finished yet
 
-  // A run passes when every non-free-pass use case passed.
+  // A run passes when every non-free-pass use case passed or passed_by_agreement.
   const passed = ucRows
     .filter((uc) => !uc.freePass)
-    .every((uc) => uc.status === "passed");
+    .every((uc) => uc.status === "passed" || uc.status === "passed_by_agreement");
 
   await db
     .update(testRunsTable)
@@ -456,10 +457,10 @@ router.delete("/test-runs/:testRunId/use-cases/:testRunUseCaseId", authenticate,
  * POST /test-runs/:testRunId/use-cases/:useCaseId/sync
  * Syncs the status of a test run use case based on its test case executions.
  */
-router.post("/test-runs/:testRunId/use-cases/:useCaseId/sync", async (req, res) => {
+router.post("/test-runs/:testRunId/use-cases/:useCaseId/sync", authenticate, async (req, res) => {
   try {
-    const testRunId = parseInt(req.params.testRunId);
-    const useCaseId = parseInt(req.params.useCaseId);
+    const testRunId = parseInt(req.params.testRunId as string);
+    const useCaseId = parseInt(req.params.useCaseId as string);
     if (isNaN(testRunId) || isNaN(useCaseId)) return res.status(400).json({ error: "Invalid ID" });
 
     const runUc = await db.query.testRunUseCasesTable.findFirst({
@@ -470,6 +471,12 @@ router.post("/test-runs/:testRunId/use-cases/:useCaseId/sync", async (req, res) 
     });
 
     if (!runUc) return res.status(404).json({ error: "Test run use case not found" });
+
+    // Don't override manual passed_by_agreement via sync
+    if (runUc.status === "passed_by_agreement") {
+      const detail = await buildTestRunDetail(testRunId);
+      return res.json(detail);
+    }
 
     // Get all test cases for this use case
     const testCases = await db.query.testCasesTable.findMany({
@@ -510,14 +517,14 @@ router.post("/test-runs/:testRunId/use-cases/:useCaseId/sync", async (req, res) 
       await db.update(testRunUseCasesTable)
         .set({ status: newStatus })
         .where(eq(testRunUseCasesTable.id, runUc.id));
-      
+
       if (newStatus === "passed" || newStatus === "failed") {
         await recalculateTestRunResult(testRunId);
       }
     }
 
     const detail = await buildTestRunDetail(testRunId);
-    res.json(detail);
+    return res.json(detail);
   } catch (err: any) {
     req.log.error({ err }, "Failed to sync use case status");
     res.status(500).json({ error: "Internal server error" });
