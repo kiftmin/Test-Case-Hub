@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Paperclip, X, Loader2, Image as ImageIcon, Check } from "lucide-react";
 import { useCreateAttachment, useDeleteAttachment } from "@workspace/api-client-react";
+import { getAuthToken } from "@/lib/auth";
 
 interface EvidenceUploadProps {
   entityId: number;
@@ -28,6 +29,9 @@ export function EvidenceUpload({ entityId, entityType, attachments = [], onUpdat
 
       const res = await fetch("/api/upload", {
         method: "POST",
+        headers: {
+          "Authorization": `Bearer ${getAuthToken()}`,
+        },
         body: formData,
       });
 

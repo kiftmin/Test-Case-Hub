@@ -1074,6 +1074,7 @@ export const LoginResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
 })
@@ -1100,6 +1101,7 @@ export const ListUsersResponseItem = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
 export const ListUsersResponse = zod.array(ListUsersResponseItem)
@@ -1136,6 +1138,7 @@ export const UpdateUserResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
 
@@ -1167,6 +1170,7 @@ export const ListProjectUsersResponseItem = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).optional()
 })
@@ -1288,6 +1292,7 @@ export const ListDefectsResponseItem = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional()
@@ -1362,6 +1367,7 @@ export const GetDefectResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional()
@@ -1435,6 +1441,7 @@ export const FlagDefectAsBugResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional()
@@ -1512,6 +1519,7 @@ export const FlagDefectForRetestResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional()
@@ -1585,6 +1593,7 @@ export const FlagDefectAcceptedByBusinessResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional()
@@ -1662,6 +1671,7 @@ export const BusinessAcceptDefectResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional()
@@ -1739,6 +1749,7 @@ export const BusinessRejectDefectResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional()
@@ -1848,6 +1859,7 @@ export const ListBugsResponseItem = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional()
@@ -1858,6 +1870,7 @@ export const ListBugsResponseItem = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish(),
   "auditLog": zod.array(zod.object({
@@ -1875,6 +1888,7 @@ export const ListBugsResponseItem = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional()
@@ -1966,6 +1980,7 @@ export const GetBugResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional()
@@ -1976,6 +1991,7 @@ export const GetBugResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish(),
   "auditLog": zod.array(zod.object({
@@ -1993,6 +2009,7 @@ export const GetBugResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional()
@@ -2088,6 +2105,7 @@ export const AssignBugResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional()
@@ -2098,6 +2116,7 @@ export const AssignBugResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish(),
   "auditLog": zod.array(zod.object({
@@ -2115,6 +2134,7 @@ export const AssignBugResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional()
@@ -2210,6 +2230,7 @@ export const UpdateBugStatusResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional()
@@ -2220,6 +2241,7 @@ export const UpdateBugStatusResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish(),
   "auditLog": zod.array(zod.object({
@@ -2237,6 +2259,7 @@ export const UpdateBugStatusResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional()
@@ -2331,6 +2354,7 @@ export const UpdateBugNotesResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional()
@@ -2341,6 +2365,7 @@ export const UpdateBugNotesResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish(),
   "auditLog": zod.array(zod.object({
@@ -2358,6 +2383,7 @@ export const UpdateBugNotesResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional()
@@ -2452,6 +2478,7 @@ export const ReassignBugResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional()
@@ -2462,6 +2489,7 @@ export const ReassignBugResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish(),
   "auditLog": zod.array(zod.object({
@@ -2479,6 +2507,7 @@ export const ReassignBugResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional()
@@ -2526,6 +2555,7 @@ export const GetDiscussionResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional(),
@@ -2535,6 +2565,7 @@ export const GetDiscussionResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })
@@ -2568,6 +2599,7 @@ export const EndDiscussionResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional(),
@@ -2577,6 +2609,7 @@ export const EndDiscussionResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })
@@ -2626,6 +2659,7 @@ export const RemoveParticipantResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional(),
@@ -2635,6 +2669,7 @@ export const RemoveParticipantResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })
@@ -2708,6 +2743,7 @@ export const GetDiscussionDefectDrilldownResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "role": zod.string(),
+  "isActive": zod.boolean(),
   "createdAt": zod.string()
 }).nullish()
 })).optional()

@@ -94,3 +94,28 @@ export const authorizeProjectRole = (allowedProjectRoles: string[]) => {
     next();
   };
 };
+
+/**
+ * Inline project-role check for routes without :projectId in the path.
+ * Returns true if the user is ADMIN or has one of the allowed project roles.
+ */
+export async function checkProjectRole(
+  req: AuthRequest,
+  projectId: number,
+  allowedProjectRoles: string[]
+): Promise<boolean> {
+  if (!req.user) return false;
+  if (req.user.role === "ADMIN") return true;
+
+  const { db, projectAssignmentsTable } = await import("@workspace/db");
+  const { eq, and } = await import("drizzle-orm");
+
+  const assignment = await db.query.projectAssignmentsTable.findFirst({
+    where: and(
+      eq(projectAssignmentsTable.projectId, projectId),
+      eq(projectAssignmentsTable.userId, req.user.userId)
+    ),
+  });
+
+  return !!assignment && allowedProjectRoles.includes(assignment.role);
+}

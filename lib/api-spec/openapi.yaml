@@ -2081,9 +2081,11 @@ components:
           nullable: true
         role:
           type: string
+        isActive:
+          type: boolean
         createdAt:
           type: string
-      required: [id, username, name, role, createdAt]
+      required: [id, username, name, role, isActive, createdAt]
 
     CreateUserBody:
       type: object
@@ -2599,7 +2601,7 @@ components:
           type: integer
         meetingType:
           type: string
-          enum: [Defect Review, Post-Mortem]
+          enum: [defect_review, post_mortem]
         isActive:
           type: boolean
         createdAt:
@@ -2642,7 +2644,7 @@ components:
       properties:
         meetingType:
           type: string
-          enum: [Defect Review, Post-Mortem]
+          enum: [defect_review, post_mortem]
         participantIds:
           type: array
           items:

@@ -10,6 +10,6 @@ export type CreateDiscussionBodyMeetingType = typeof CreateDiscussionBodyMeeting
 
 
 export const CreateDiscussionBodyMeetingType = {
-  Defect_Review: 'Defect Review',
-  'Post-Mortem': 'Post-Mortem',
+  Defect_Review: 'defect_review',
+  Post_Mortem: 'post_mortem',
 } as const;

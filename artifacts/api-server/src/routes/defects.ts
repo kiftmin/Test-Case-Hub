@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, defectsTable, defectNotesTable, bugsTable, statusAuditLogTable, testRunsTable, projectsTable, usersTable, projectAssignmentsTable, testCasesTable, testRunUseCasesTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { z } from "zod";
-import { authenticate, authorize, authorizeProjectRole } from "../middlewares/auth";
+import { authenticate, checkProjectRole } from "../middlewares/auth";
 
 const router = Router();
 
@@ -135,7 +135,7 @@ router.get("/defects/:defectId", authenticate, async (req, res) => {
   }
 });
 
-router.patch("/defects/:defectId/flag-bug", authenticate, authorize(["ADMIN", "AUTHOR"]), async (req, res) => {
+router.patch("/defects/:defectId/flag-bug", authenticate, async (req, res) => {
   try {
     const defectId = parseInt(req.params.defectId as string);
     if (isNaN(defectId)) return res.status(400).json({ error: "Invalid defect ID" });
@@ -154,6 +154,8 @@ router.patch("/defects/:defectId/flag-bug", authenticate, authorize(["ADMIN", "A
       with: { project: true },
     });
     if (!run) return res.status(404).json({ error: "Test run not found" });
+    const allowed = await checkProjectRole(req, run.projectId, ["TEST_LEAD"]);
+    if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
 
     const existingBugs = await db.query.bugsTable.findMany({
       where: eq(bugsTable.projectId, run.projectId),
@@ -180,7 +182,7 @@ router.patch("/defects/:defectId/flag-bug", authenticate, authorize(["ADMIN", "A
   }
 });
 
-router.patch("/defects/:defectId/flag-retest", authenticate, authorize(["ADMIN", "AUTHOR"]), async (req, res) => {
+router.patch("/defects/:defectId/flag-retest", authenticate, async (req, res) => {
   try {
     const defectId = parseInt(req.params.defectId as string);
     if (isNaN(defectId)) return res.status(400).json({ error: "Invalid defect ID" });
@@ -194,6 +196,14 @@ router.patch("/defects/:defectId/flag-retest", authenticate, authorize(["ADMIN",
     if (!defect) return res.status(404).json({ error: "Defect not found" });
     if (defect.status !== "New Defect" && defect.status !== "Ready for Testing") {
       return res.status(400).json({ error: `Cannot flag retest from status "${defect.status}".` });
+    }
+
+    const run = await db.query.testRunsTable.findFirst({
+      where: eq(testRunsTable.id, defect.testRunId),
+    });
+    if (run) {
+      const allowed = await checkProjectRole(req, run.projectId, ["TEST_LEAD"]);
+      if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
     }
 
     const oldStatus = defect.status;
@@ -211,7 +221,7 @@ router.patch("/defects/:defectId/flag-retest", authenticate, authorize(["ADMIN",
   }
 });
 
-router.patch("/defects/:defectId/flag-accepted-by-business", authenticate, authorize(["ADMIN", "AUTHOR"]), async (req, res) => {
+router.patch("/defects/:defectId/flag-accepted-by-business", authenticate, async (req, res) => {
   try {
     const defectId = parseInt(req.params.defectId as string);
     if (isNaN(defectId)) return res.status(400).json({ error: "Invalid defect ID" });
@@ -223,6 +233,14 @@ router.patch("/defects/:defectId/flag-accepted-by-business", authenticate, autho
     if (!defect) return res.status(404).json({ error: "Defect not found" });
     if (defect.status !== "New Defect" && defect.status !== "Ready for Testing") {
       return res.status(400).json({ error: `Cannot accept from status "${defect.status}".` });
+    }
+
+    const run = await db.query.testRunsTable.findFirst({
+      where: eq(testRunsTable.id, defect.testRunId),
+    });
+    if (run) {
+      const allowed = await checkProjectRole(req, run.projectId, ["TEST_LEAD"]);
+      if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
     }
 
     const oldStatus = defect.status;

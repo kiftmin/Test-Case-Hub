@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authenticate, authorize } from "../middlewares/auth";
+import { authenticate, authorize, authorizeProjectRole, checkProjectRole } from "../middlewares/auth";
 import { db,
   testRunsTable,
   testRunUseCasesTable,
@@ -140,8 +140,7 @@ router.get("/projects/:projectId/test-runs", authenticate, async (req, res) => {
         where: eq(testRunsTable.projectId, projectId),
         orderBy: desc(testRunsTable.scheduledAt),
       });
-    } else if (req.user?.role === "AUTHOR") {
-      // Authors see runs for assigned projects
+    } else {
       const assignment = await db.query.projectAssignmentsTable.findFirst({
         where: and(
           eq(projectAssignmentsTable.projectId, projectId),
@@ -150,27 +149,29 @@ router.get("/projects/:projectId/test-runs", authenticate, async (req, res) => {
       });
       if (!assignment) return res.status(403).json({ error: "You are not assigned to this project" });
 
-      runs = await db.query.testRunsTable.findMany({
-        where: eq(testRunsTable.projectId, projectId),
-        orderBy: desc(testRunsTable.scheduledAt),
-      });
-    } else {
-      // Testers see only runs where they have at least one use case assignment
-      const myRunAssignments = await db.query.testRunUseCasesTable.findMany({
-        where: eq(testRunUseCasesTable.assignedTesterId, req.user!.userId),
-      });
-      const runIds = [...new Set(myRunAssignments.map(a => a.testRunId))];
-
-      if (runIds.length === 0) {
-        runs = [];
-      } else {
+      if (["TEST_LEAD", "TEST_AUTHOR", "DEVELOPER", "BUSINESS_OWNER"].includes(assignment.role)) {
         runs = await db.query.testRunsTable.findMany({
-          where: (tr, { and, eq, inArray }) => and(
-            eq(tr.projectId, projectId),
-            inArray(tr.id, runIds)
-          ),
+          where: eq(testRunsTable.projectId, projectId),
           orderBy: desc(testRunsTable.scheduledAt),
         });
+      } else {
+        // Testers see only runs where they have at least one use case assignment
+        const myRunAssignments = await db.query.testRunUseCasesTable.findMany({
+          where: eq(testRunUseCasesTable.assignedTesterId, req.user!.userId),
+        });
+        const runIds = [...new Set(myRunAssignments.map(a => a.testRunId))];
+
+        if (runIds.length === 0) {
+          runs = [];
+        } else {
+          runs = await db.query.testRunsTable.findMany({
+            where: (tr, { and, eq, inArray }) => and(
+              eq(tr.projectId, projectId),
+              inArray(tr.id, runIds)
+            ),
+            orderBy: desc(testRunsTable.scheduledAt),
+          });
+        }
       }
     }
 
@@ -192,7 +193,7 @@ router.get("/projects/:projectId/test-runs", authenticate, async (req, res) => {
  * POST /projects/:projectId/test-runs
  * Create a new test run. Defaults to including all use cases in the project.
  */
-router.post("/projects/:projectId/test-runs", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
+router.post("/projects/:projectId/test-runs", authenticate, authorizeProjectRole(["TEST_LEAD"]), async (req, res) => {
   try {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) return res.status(400).json({ error: "Invalid project ID" });
@@ -262,16 +263,15 @@ router.get("/test-runs/:testRunId", authenticate, async (req, res) => {
 
     // Check visibility
     if (req.user?.role !== "ADMIN") {
-      if (req.user?.role === "AUTHOR") {
-        const assignment = await db.query.projectAssignmentsTable.findFirst({
-          where: and(
-            eq(projectAssignmentsTable.projectId, run.projectId),
-            eq(projectAssignmentsTable.userId, req.user!.userId)
-          )
-        });
-        if (!assignment) return res.status(403).json({ error: "You are not assigned to this project" });
-      } else {
-        // Tester
+      const projectAssignment = await db.query.projectAssignmentsTable.findFirst({
+        where: and(
+          eq(projectAssignmentsTable.projectId, run.projectId),
+          eq(projectAssignmentsTable.userId, req.user!.userId)
+        )
+      });
+      if (!projectAssignment) return res.status(403).json({ error: "You are not assigned to this project" });
+
+      if (projectAssignment.role === "TESTER") {
         const assignment = await db.query.testRunUseCasesTable.findFirst({
           where: and(
             eq(testRunUseCasesTable.testRunId, testRunId),
@@ -296,7 +296,7 @@ router.get("/test-runs/:testRunId", authenticate, async (req, res) => {
  * PATCH /test-runs/:testRunId
  * Update top-level test run fields (name, scheduledAt, status).
  */
-router.patch("/test-runs/:testRunId", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
+router.patch("/test-runs/:testRunId", authenticate, async (req, res) => {
   try {
     const testRunId = parseInt(req.params.testRunId as string);
     if (isNaN(testRunId)) return res.status(400).json({ error: "Invalid test run ID" });
@@ -307,6 +307,9 @@ router.patch("/test-runs/:testRunId", authenticate, authorize(['ADMIN', 'AUTHOR'
       where: eq(testRunsTable.id, testRunId),
     });
     if (!existing) return res.status(404).json({ error: "Test run not found" });
+
+    const allowed = await checkProjectRole(req, existing.projectId, ["TEST_LEAD"]);
+    if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
 
     const updateData: Partial<typeof existing> = {};
     if (body.name !== undefined) updateData.name = body.name;
@@ -383,7 +386,7 @@ router.patch("/test-runs/:testRunId/use-cases/:testRunUseCaseId", authenticate, 
  * POST /test-runs/:testRunId/use-cases
  * Add a use case to an existing (non-completed) test run.
  */
-router.post("/test-runs/:testRunId/use-cases", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
+router.post("/test-runs/:testRunId/use-cases", authenticate, async (req, res) => {
   try {
     const testRunId = parseInt(req.params.testRunId as string);
     if (isNaN(testRunId)) return res.status(400).json({ error: "Invalid test run ID" });
@@ -394,6 +397,9 @@ router.post("/test-runs/:testRunId/use-cases", authenticate, authorize(['ADMIN',
       where: eq(testRunsTable.id, testRunId),
     });
     if (!run) return res.status(404).json({ error: "Test run not found" });
+
+    const allowed = await checkProjectRole(req, run.projectId, ["TEST_LEAD"]);
+    if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
     if (run.status === "completed") {
       return res.status(422).json({ error: "Cannot modify a completed test run" });
     }
@@ -426,13 +432,20 @@ router.post("/test-runs/:testRunId/use-cases", authenticate, authorize(['ADMIN',
  * DELETE /test-runs/:testRunId/use-cases/:testRunUseCaseId
  * Remove a use case from a test run (only if pending).
  */
-router.delete("/test-runs/:testRunId/use-cases/:testRunUseCaseId", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
+router.delete("/test-runs/:testRunId/use-cases/:testRunUseCaseId", authenticate, async (req, res) => {
   try {
     const testRunId = parseInt(req.params.testRunId as string);
     const testRunUseCaseId = parseInt(req.params.testRunUseCaseId as string);
     if (isNaN(testRunId) || isNaN(testRunUseCaseId)) {
       return res.status(400).json({ error: "Invalid ID" });
     }
+
+    const run = await db.query.testRunsTable.findFirst({
+      where: eq(testRunsTable.id, testRunId),
+    });
+    if (!run) return res.status(404).json({ error: "Test run not found" });
+    const allowed = await checkProjectRole(req, run.projectId, ["TEST_LEAD"]);
+    if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
 
     const row = await db.query.testRunUseCasesTable.findFirst({
       where: and(
@@ -532,11 +545,41 @@ router.post("/test-runs/:testRunId/use-cases/:useCaseId/sync", authenticate, asy
 });
 
 /**
+ * DELETE /test-runs/:testRunId
+ * Delete a scheduled test run (only allowed if still in "scheduled" status).
+ */
+router.delete("/test-runs/:testRunId", authenticate, async (req, res) => {
+  try {
+    const testRunId = parseInt(req.params.testRunId as string);
+    if (isNaN(testRunId)) return res.status(400).json({ error: "Invalid test run ID" });
+
+    const run = await db.query.testRunsTable.findFirst({
+      where: eq(testRunsTable.id, testRunId),
+    });
+    if (!run) return res.status(404).json({ error: "Test run not found" });
+    if (run.status !== "scheduled") {
+      return res.status(422).json({ error: "Only scheduled test runs can be deleted" });
+    }
+
+    const allowed = await checkProjectRole(req, run.projectId, ["TEST_LEAD"]);
+    if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
+
+    await db.delete(testRunUseCasesTable).where(eq(testRunUseCasesTable.testRunId, testRunId));
+    await db.delete(testRunsTable).where(eq(testRunsTable.id, testRunId));
+
+    res.status(204).send();
+  } catch (err) {
+    req.log.error({ err }, "Failed to delete test run");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
  * POST /test-runs/:testRunId/re-run
  * Create a new test run based on a completed (failed) run.
  * By default includes all use cases; if failedOnly=true, only failed ones.
  */
-router.post("/test-runs/:testRunId/re-run", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
+router.post("/test-runs/:testRunId/re-run", authenticate, async (req, res) => {
   try {
     const sourceTestRunId = parseInt(req.params.testRunId as string);
     if (isNaN(sourceTestRunId)) return res.status(400).json({ error: "Invalid test run ID" });
@@ -545,6 +588,9 @@ router.post("/test-runs/:testRunId/re-run", authenticate, authorize(['ADMIN', 'A
       where: eq(testRunsTable.id, sourceTestRunId),
     });
     if (!sourceRun) return res.status(404).json({ error: "Source test run not found" });
+
+    const allowed = await checkProjectRole(req, sourceRun.projectId, ["TEST_LEAD"]);
+    if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
 
     const body = ReRunBody.parse(req.body);
 
@@ -619,7 +665,7 @@ router.get("/dashboard/tester/:userId/test-runs", async (req, res) => {
       .where(
         and(
           inArray(testRunsTable.id, runIds),
-          inArray(testRunsTable.status, ["scheduled", "in_progress"])
+          inArray(testRunsTable.status, ["scheduled", "in_progress", "completed"])
         )
       )
       .orderBy(testRunsTable.scheduledAt);

@@ -1,10 +1,26 @@
 import { Router } from "express";
-import { db, testStepsTable, attachmentsTable } from "@workspace/db";
+import { db, testStepsTable, testCasesTable, useCasesTable, attachmentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { CreateTestStepBody, BulkCreateTestStepsBody } from "@workspace/api-zod";
-import { authenticate, authorize } from "../middlewares/auth";
+import { authenticate, checkProjectRole } from "../middlewares/auth";
 
 const router = Router();
+
+async function getProjectIdFromStep(stepId: number): Promise<number | null> {
+  const step = await db.query.testStepsTable.findFirst({
+    where: eq(testStepsTable.id, stepId),
+    with: { testCase: { with: { useCase: true } } },
+  });
+  return step?.testCase?.useCase?.projectId ?? null;
+}
+
+async function getProjectIdFromTestCase(testCaseId: number): Promise<number | null> {
+  const tc = await db.query.testCasesTable.findFirst({
+    where: eq(testCasesTable.id, testCaseId),
+    with: { useCase: true },
+  });
+  return tc?.useCase?.projectId ?? null;
+}
 
 async function stepsWithAttachments(steps: typeof testStepsTable.$inferSelect[]) {
   return Promise.all(
@@ -40,10 +56,15 @@ router.get("/test-cases/:testCaseId/steps", async (req, res) => {
   }
 });
 
-router.post("/test-cases/:testCaseId/steps", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
+router.post("/test-cases/:testCaseId/steps", authenticate, async (req, res) => {
   try {
     const testCaseId = parseInt(req.params.testCaseId as string);
     if (isNaN(testCaseId)) return res.status(400).json({ error: "Invalid test case ID" });
+
+    const projectId = await getProjectIdFromTestCase(testCaseId);
+    if (!projectId) return res.status(404).json({ error: "Test case not found" });
+    const allowed = await checkProjectRole(req, projectId, ["TEST_LEAD", "TEST_AUTHOR"]);
+    if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
 
     const body = CreateTestStepBody.parse(req.body);
 
@@ -74,10 +95,15 @@ router.post("/test-cases/:testCaseId/steps", authenticate, authorize(['ADMIN', '
   }
 });
 
-router.post("/test-cases/:testCaseId/steps/bulk", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
+router.post("/test-cases/:testCaseId/steps/bulk", authenticate, async (req, res) => {
   try {
     const testCaseId = parseInt(req.params.testCaseId as string);
     if (isNaN(testCaseId)) return res.status(400).json({ error: "Invalid test case ID" });
+
+    const projectId = await getProjectIdFromTestCase(testCaseId);
+    if (!projectId) return res.status(404).json({ error: "Test case not found" });
+    const allowed = await checkProjectRole(req, projectId, ["TEST_LEAD", "TEST_AUTHOR"]);
+    if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
 
     const body = BulkCreateTestStepsBody.parse(req.body);
 
@@ -109,7 +135,7 @@ router.post("/test-cases/:testCaseId/steps/bulk", authenticate, authorize(['ADMI
   }
 });
 
-router.put("/steps/:stepId", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
+router.put("/steps/:stepId", authenticate, async (req, res) => {
   try {
     const stepId = parseInt(req.params.stepId as string);
     if (isNaN(stepId)) return res.status(400).json({ error: "Invalid step ID" });
@@ -117,6 +143,11 @@ router.put("/steps/:stepId", authenticate, authorize(['ADMIN', 'AUTHOR']), async
     req.log.info({ stepId }, "Updating test step");
 
     const body = CreateTestStepBody.parse(req.body);
+
+    const projectId = await getProjectIdFromStep(stepId);
+    if (!projectId) return res.status(404).json({ error: "Step not found" });
+    const allowed = await checkProjectRole(req, projectId, ["TEST_LEAD", "TEST_AUTHOR"]);
+    if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
 
     const updateQuery = db
       .update(testStepsTable)
@@ -132,7 +163,6 @@ router.put("/steps/:stepId", authenticate, authorize(['ADMIN', 'AUTHOR']), async
     const [updated] = await updateQuery;
 
     if (!updated) {
-      // If returning() is empty, try a direct select to see if the row exists at all
       const exists = await db.query.testStepsTable.findFirst({
         where: eq(testStepsTable.id, stepId),
       });
@@ -163,10 +193,15 @@ router.put("/steps/:stepId", authenticate, authorize(['ADMIN', 'AUTHOR']), async
   }
 });
 
-router.delete("/steps/:stepId", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
+router.delete("/steps/:stepId", authenticate, async (req, res) => {
   try {
     const stepId = parseInt(req.params.stepId as string);
     if (isNaN(stepId)) return res.status(400).json({ error: "Invalid step ID" });
+
+    const projectId = await getProjectIdFromStep(stepId);
+    if (!projectId) return res.status(404).json({ error: "Step not found" });
+    const allowed = await checkProjectRole(req, projectId, ["TEST_LEAD", "TEST_AUTHOR"]);
+    if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
 
     const deleteQuery = db.delete(testStepsTable).where(eq(testStepsTable.id, stepId));
     req.log.info({ sql: deleteQuery.toSQL(), stepId }, "Deleting test step");

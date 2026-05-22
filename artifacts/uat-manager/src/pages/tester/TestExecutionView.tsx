@@ -4,24 +4,31 @@ import {
   useGetProjectByCode, getGetProjectByCodeQueryKey,
   useListExecutions, getListExecutionsQueryKey,
   useCreateExecution, useUpdateExecution, useUpdateStepResult,
-  useSyncTestRunUseCaseStatus, useGetTestRun, getGetTestRunQueryKey
+  useSyncTestRunUseCaseStatus, useGetTestRun, getGetTestRunQueryKey,
+  useListDefects, getListDefectsQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Check, X, AlertCircle, Save, LogOut, Paperclip, FileIcon, ClipboardCheck, Smartphone } from "lucide-react";
+import { Check, X, AlertCircle, Save, LogOut, Paperclip, FileIcon, ClipboardCheck, Smartphone, Bug } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAuthUser, clearAuth } from "@/lib/auth";
 
 import { EvidenceUpload } from "@/components/tester/EvidenceUpload";
 import { MobileShare } from "@/components/tester/MobileShare";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 
 // A component for executing a single test case
 function TestCaseExecutor({ testCase, projectCode, user, testRunId, onComplete }: any) {
   const queryClient = useQueryClient();
+  
+  // Force fresh data on mount - invalidate any stale cache for this test case
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: getListExecutionsQueryKey(testCase.id) });
+  }, [testCase.id]);
+
   const { data: executions, isLoading: isLoadingExecutions } = useListExecutions(testCase.id, {
     query: { enabled: !!testCase.id, queryKey: getListExecutionsQueryKey(testCase.id) }
   });
@@ -33,9 +40,13 @@ function TestCaseExecutor({ testCase, projectCode, user, testRunId, onComplete }
   const [activeExecutionId, setActiveExecutionId] = useState<number | null>(null);
   const [stepResults, setStepResults] = useState<Record<number, { id?: number; actualResult: string; comments: string; passed: boolean | null; attachments: any[] }>>({});
 
-  // Find the active (in_progress) execution
-  const activeExecution = executions?.find(e => e.status === 'in_progress' && e.testerName === user.name);
-  const lastCompletedExecution = executions?.find(e => e.status !== 'in_progress');
+  const [defectNotes, setDefectNotes] = useState("");
+  const [showDefectDialog, setShowDefectDialog] = useState(false);
+  const [createdDefectId, setCreatedDefectId] = useState<number | null>(null);
+
+  // Find the active (in_progress) execution for this test run
+  const activeExecution = executions?.find(e => e.status === 'in_progress' && e.testerName === user.name && (!testRunId || e.testRunId === testRunId));
+  const lastCompletedExecution = executions?.find(e => e.status !== 'in_progress' && (!testRunId || e.testRunId === testRunId));
 
   // Initialize step results when an execution is active
   useEffect(() => {
@@ -98,12 +109,17 @@ function TestCaseExecutor({ testCase, projectCode, user, testRunId, onComplete }
   const handleCompleteExecution = async (isPass: boolean) => {
     if (!activeExecutionId) return;
 
+    const data: any = {
+      testerName: user.name,
+      status: isPass ? "completed" : "failed",
+    };
+    if (!isPass && defectNotes) {
+      data.notes = defectNotes;
+    }
+
     await updateExecution.mutateAsync({
       executionId: activeExecutionId,
-      data: {
-        testerName: user.name,
-        status: isPass ? "completed" : "failed"
-      }
+      data,
     });
 
     if (testRunId && testCase.useCaseId) {
@@ -119,12 +135,77 @@ function TestCaseExecutor({ testCase, projectCode, user, testRunId, onComplete }
 
     queryClient.invalidateQueries({ queryKey: getListExecutionsQueryKey(testCase.id) });
     queryClient.invalidateQueries({ queryKey: getGetProjectByCodeQueryKey(projectCode) });
+
+    if (!isPass && testRunId) {
+      queryClient.invalidateQueries({ queryKey: getListDefectsQueryKey(testRunId) });
+      setTimeout(() => {
+        setCreatedDefectId(Date.now());
+        setShowDefectDialog(true);
+      }, 500);
+    } else {
+      onComplete();
+    }
+  };
+
+  const handleDefectDialogClose = () => {
+    setShowDefectDialog(false);
+    setCreatedDefectId(null);
     onComplete();
   };
 
   if (isLoadingExecutions) return <div className="p-8 text-center animate-pulse">Loading execution history...</div>;
 
   if (!activeExecutionId) {
+    if (lastCompletedExecution) {
+      return (
+        <Card className="mb-6 border-border shadow-md">
+          <CardHeader className={cn("pb-4", lastCompletedExecution.status === "completed" ? "bg-green-50 dark:bg-green-950/20" : "bg-red-50 dark:bg-red-950/20")}>
+            <div className="flex justify-between items-start gap-4">
+              <div>
+                <div className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">
+                  TC-{testCase.caseNumber}
+                </div>
+                <CardTitle className="text-xl">{testCase.title}</CardTitle>
+              </div>
+              <div className={cn(
+                "px-3 py-1 rounded-full text-xs font-semibold border",
+                lastCompletedExecution.status === "completed"
+                  ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400"
+                  : "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400"
+              )}>
+                {lastCompletedExecution.status === "completed" ? 'PASSED' : 'FAILED'}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-4 space-y-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+              <ClipboardCheck className="w-4 h-4" />
+              <span>Submitted on {new Date(lastCompletedExecution.executedAt).toLocaleString()}</span>
+            </div>
+            {lastCompletedExecution.stepResults?.map((sr: any) => {
+              const step = testCase.steps?.find((s: any) => s.id === sr.stepId);
+              return (
+                <div key={sr.id} className="flex items-start gap-3 p-3 rounded-md border bg-card">
+                  <div className={cn(
+                    "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5",
+                    sr.passed
+                      ? "bg-green-100 text-green-700"
+                      : "bg-red-100 text-red-700"
+                  )}>
+                    {sr.passed ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-muted-foreground">Step {step?.stepNumber || sr.stepId}</p>
+                    <p className="text-sm">{sr.actualResult || <span className="italic text-muted-foreground">No result recorded</span>}</p>
+                    {sr.comments && <p className="text-xs text-muted-foreground mt-1">{sr.comments}</p>}
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      );
+    }
     return (
       <Card className="mb-6 border-border shadow-md">
         <CardHeader className="bg-muted/30 pb-4">
@@ -135,16 +216,6 @@ function TestCaseExecutor({ testCase, projectCode, user, testRunId, onComplete }
               </div>
               <CardTitle className="text-xl">{testCase.title}</CardTitle>
             </div>
-            {lastCompletedExecution && (
-              <div className={cn(
-                "px-3 py-1 rounded-full text-xs font-semibold border",
-                lastCompletedExecution.status === "completed" 
-                  ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400" 
-                  : "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400"
-              )}>
-                Last: {lastCompletedExecution.status === "completed" ? 'PASSED' : 'FAILED'}
-              </div>
-            )}
           </div>
         </CardHeader>
         <CardContent className="pt-8 flex flex-col items-center justify-center text-center space-y-4">
@@ -315,13 +386,72 @@ function TestCaseExecutor({ testCase, projectCode, user, testRunId, onComplete }
             <Button 
               className={cn("flex-1 sm:flex-none", allStepsDone && !anyStepFailed ? "bg-green-600 hover:bg-green-700" : "")}
               disabled={!allStepsDone || updateExecution.isPending}
-              onClick={() => handleCompleteExecution(!anyStepFailed)}
+              onClick={() => {
+                if (anyStepFailed) {
+                  setDefectNotes("");
+                  setShowDefectDialog(true);
+                } else {
+                  handleCompleteExecution(true);
+                }
+              }}
             >
               {anyStepFailed ? "Submit Failure" : "Complete Test"}
             </Button>
           </div>
         </div>
       </CardContent>
+      <Dialog open={showDefectDialog && createdDefectId === null} onOpenChange={(open) => { if (!open) { setShowDefectDialog(false); onComplete(); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-amber-600" />
+              Defect Notes
+            </DialogTitle>
+            <DialogDescription>
+              A defect will be created for this failed execution. Add any notes for the development team.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            placeholder="Describe what went wrong, steps to reproduce, or any additional context..."
+            className="h-28 resize-none"
+            value={defectNotes}
+            onChange={(e) => setDefectNotes(e.target.value)}
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setShowDefectDialog(false); onComplete(); }}>Cancel</Button>
+            <Button onClick={() => { setShowDefectDialog(false); handleCompleteExecution(false); }} disabled={updateExecution.isPending}>
+              {updateExecution.isPending ? "Submitting..." : "Confirm Defect"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDefectDialog && createdDefectId !== null} onOpenChange={handleDefectDialogClose}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-700">
+              <Check className="w-5 h-5" />
+              Defect Created
+            </DialogTitle>
+            <DialogDescription>
+              A defect has been automatically created for this failed test case. It has been logged with status "New Defect".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="bg-amber-50 border border-amber-200 p-4 rounded-md text-sm text-amber-800 space-y-2">
+            <p className="font-medium">What happens next?</p>
+            <ul className="list-disc list-inside space-y-1 text-xs">
+              <li>The Test Lead will review the defect</li>
+              <li>It may be flagged as a bug and assigned to a developer</li>
+              <li>The Business Owner may accept it as a known issue</li>
+            </ul>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleDefectDialogClose}>
+              Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
@@ -382,6 +512,23 @@ export default function TestExecutionView() {
         <h2 className="text-2xl font-bold text-foreground">Access Restricted</h2>
         <p className="text-muted-foreground mt-2 max-w-md">
           This project has been officially signed off. The test portal is now closed for this project.
+        </p>
+        <Link href="/tester/dashboard">
+          <Button variant="outline" className="mt-6">Return to Dashboard</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  if (testRunId && testRun && testRun.status === "completed") {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 text-center">
+        <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center text-green-600 mb-4">
+          <ClipboardCheck className="w-8 h-8" />
+        </div>
+        <h2 className="text-2xl font-bold text-foreground">Test Run Submitted</h2>
+        <p className="text-muted-foreground mt-2 max-w-md">
+          This test run has already been completed and submitted. Thank you for your contribution.
         </p>
         <Link href="/tester/dashboard">
           <Button variant="outline" className="mt-6">Return to Dashboard</Button>
@@ -467,6 +614,7 @@ export default function TestExecutionView() {
                 &larr; Back to list
               </Button>
               <TestCaseExecutor 
+                key={`${testRunId ?? 'none'}-${activeTestCase?.id}`}
                 testCase={activeTestCase} 
                 projectCode={code} 
                 user={user}
@@ -488,7 +636,10 @@ export default function TestExecutionView() {
           activeTestCaseId !== null && "hidden lg:block" // Hide list on mobile when a case is active
         )}>
           {filteredUseCases.map((useCase) => {
-            const completedCount = useCase.testCases.filter(tc => tc.executions?.length > 0).length;
+            const completedCount = useCase.testCases.filter(tc => {
+              const exec = tc.executions?.find(e => !testRunId || e.testRunId === testRunId);
+              return exec && exec.status !== 'in_progress';
+            }).length;
             const isFullyCompleted = completedCount === useCase.testCases.length && useCase.testCases.length > 0;
             
             return (
@@ -499,7 +650,7 @@ export default function TestExecutionView() {
                 </h3>
                 <div className="space-y-1">
                   {useCase.testCases.map((tc) => {
-                    const lastExec = tc.executions?.[0];
+                    const lastExec = tc.executions?.find(e => (!testRunId || e.testRunId === testRunId) && e.status !== 'in_progress');
                     const isPassed = lastExec?.status === "completed";
                     const isFailed = lastExec?.status === "failed";
                     
@@ -531,6 +682,60 @@ export default function TestExecutionView() {
           })}
         </div>
       </main>
+
+      {testRunId && (
+        <DefectListPanel testRunId={testRunId} projectId={project.id} />
+      )}
+    </div>
+  );
+}
+
+function DefectListPanel({ testRunId, projectId }: { testRunId: number; projectId: number }) {
+  const { data: defects, isLoading } = useListDefects(testRunId, {
+    query: { enabled: !!testRunId, queryKey: getListDefectsQueryKey(testRunId) }
+  });
+
+  if (isLoading) return null;
+  if (!defects?.length) return null;
+
+  return (
+    <div className="max-w-5xl mx-auto w-full px-4 md:px-6 pb-8">
+      <Card className="border-border">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Bug className="w-4 h-4 text-amber-600" />
+              Defects for this Test Run ({defects.length})
+            </CardTitle>
+            <Link href={`/projects/${projectId}/test-runs/${testRunId}/defects`}>
+              <Button variant="ghost" size="sm" className="text-xs">View All</Button>
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="divide-y">
+            {defects.slice(0, 10).map((defect: any) => (
+              <div key={defect.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-[10px] text-muted-foreground">#{defect.id}</span>
+                  <span className="font-medium text-foreground">{defect.testCase?.title || `TC #${defect.testCaseId}`}</span>
+                </div>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
+                  defect.status === "New Defect"
+                    ? "bg-red-50 text-red-700 border-red-200"
+                    : defect.status === "Awaiting Retest"
+                    ? "bg-blue-50 text-blue-700 border-blue-200"
+                    : defect.status === "Accepted by Business"
+                    ? "bg-green-50 text-green-700 border-green-200"
+                    : "bg-slate-50 text-slate-700 border-slate-200"
+                }`}>
+                  {defect.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

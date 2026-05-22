@@ -4,6 +4,10 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
+function isNotAbortedSignal(error: Error) {
+  return !error.message.includes("signal is aborted");
+}
+
 const rawPort = process.env.PORT || "5173";
 const port = Number(rawPort);
 
@@ -18,7 +22,9 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    runtimeErrorOverlay(),
+    runtimeErrorOverlay({
+      filter: isNotAbortedSignal,
+    }),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [

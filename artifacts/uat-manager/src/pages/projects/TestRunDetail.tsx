@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useParams, useLocation } from "wouter";
-import { getAuthUser } from "@/lib/auth";
+import { getAuthUser, getAuthToken } from "@/lib/auth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -122,6 +122,7 @@ export default function TestRunDetail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAddUC, setShowAddUC] = useState(false);
   const [showRerun, setShowRerun] = useState(false);
   const [viewMode, setViewMode] = useState<"management" | "results">("management");
@@ -159,9 +160,12 @@ export default function TestRunDetail() {
   
   const updateUCMutation = useMutation({
     mutationFn: async ({ ucId, data }: { ucId: number; data: any }) => {
-      const res = await fetch(`/api/test-runs/${trId}/use-cases/${ucId}`, {
+      const res = await fetch(`${API_BASE}/test-runs/${trId}/use-cases/${ucId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${getAuthToken()}`,
+        },
         body: JSON.stringify(data),
       });
       if (!res.ok) throw new Error("Failed to update");
@@ -211,6 +215,26 @@ export default function TestRunDetail() {
           variant: "destructive" 
         });
       }
+    }
+  });
+
+  const deleteRunMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${API_BASE}/test-runs/${trId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${getAuthToken()}` },
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to delete test run");
+      }
+    },
+    onSuccess: () => {
+      toast({ title: "Test run deleted" });
+      setLocation(`/projects/${pId}/test-runs`);
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     }
   });
 
@@ -268,13 +292,23 @@ export default function TestRunDetail() {
         actions={
           <div className="flex gap-2">
             {run.status === "scheduled" && user?.role !== 'USER' && (
-              <Button
-                size="sm"
-                onClick={() => updateRunMutation.mutate({ testRunId: trId, data: { status: "in_progress" } })}
-                disabled={updateRunMutation.isPending}
-              >
-                <PlayCircle className="w-4 h-4 mr-2" /> Start Run
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={deleteRunMutation.isPending}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" /> Delete
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => updateRunMutation.mutate({ testRunId: trId, data: { status: "in_progress" } })}
+                  disabled={updateRunMutation.isPending}
+                >
+                  <PlayCircle className="w-4 h-4 mr-2" /> Start Run
+                </Button>
+              </>
             )}
             {run.status === "completed" && (
               <>
@@ -437,6 +471,32 @@ export default function TestRunDetail() {
           
           <DialogFooter>
             <Button onClick={() => setShowAddUC(false)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete Confirmation Dialog ────────────────────────────────────── */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Test Run</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this test run? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setShowDeleteConfirm(false);
+                deleteRunMutation.mutate();
+              }}
+              disabled={deleteRunMutation.isPending}
+            >
+              {deleteRunMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Delete
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

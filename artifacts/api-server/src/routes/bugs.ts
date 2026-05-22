@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, bugsTable, defectsTable, statusAuditLogTable, projectsTable, projectAssignmentsTable, testRunsTable, usersTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { z } from "zod";
-import { authenticate, authorize, authorizeProjectRole } from "../middlewares/auth";
+import { authenticate, checkProjectRole } from "../middlewares/auth";
 
 const router = Router();
 
@@ -149,7 +149,7 @@ router.get("/bugs/:bugId", authenticate, async (req, res) => {
   }
 });
 
-router.patch("/bugs/:bugId/assign", authenticate, authorize(["ADMIN", "AUTHOR"]), async (req, res) => {
+router.patch("/bugs/:bugId/assign", authenticate, async (req, res) => {
   try {
     const bugId = parseInt(req.params.bugId as string);
     if (isNaN(bugId)) return res.status(400).json({ error: "Invalid bug ID" });
@@ -160,6 +160,9 @@ router.patch("/bugs/:bugId/assign", authenticate, authorize(["ADMIN", "AUTHOR"])
       where: eq(bugsTable.id, bugId),
     });
     if (!bug) return res.status(404).json({ error: "Bug not found" });
+
+    const allowed = await checkProjectRole(req, bug.projectId, ["TEST_LEAD"]);
+    if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
 
     const oldStatus = bug.status;
     await db.update(bugsTable)
@@ -280,7 +283,7 @@ router.patch("/bugs/:bugId/notes", authenticate, async (req, res) => {
   }
 });
 
-router.patch("/bugs/:bugId/reassign", authenticate, authorize(["ADMIN", "AUTHOR"]), async (req, res) => {
+router.patch("/bugs/:bugId/reassign", authenticate, async (req, res) => {
   try {
     const bugId = parseInt(req.params.bugId as string);
     if (isNaN(bugId)) return res.status(400).json({ error: "Invalid bug ID" });
@@ -291,6 +294,9 @@ router.patch("/bugs/:bugId/reassign", authenticate, authorize(["ADMIN", "AUTHOR"
       where: eq(bugsTable.id, bugId),
     });
     if (!bug) return res.status(404).json({ error: "Bug not found" });
+
+    const allowed = await checkProjectRole(req, bug.projectId, ["TEST_LEAD"]);
+    if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
     if (bug.status !== "FAILED_TO_RESOLVE") {
       return res.status(400).json({ error: "Can only reassign bugs with FAILED_TO_RESOLVE status" });
     }

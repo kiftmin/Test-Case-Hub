@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, projectAssignmentsTable, usersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { AssignUserToProjectBody } from "@workspace/api-zod";
-import { authenticate, authorize } from "../middlewares/auth";
+import { authenticate, authorizeProjectRole } from "../middlewares/auth";
 
 const router = Router();
 
@@ -36,7 +36,7 @@ router.get("/projects/:projectId/users", async (req, res) => {
   }
 });
 
-router.post("/projects/:projectId/users", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
+router.post("/projects/:projectId/users", authenticate, authorizeProjectRole(["TEST_LEAD"]), async (req, res) => {
   try {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) return res.status(400).json({ error: "Invalid project ID" });
@@ -83,18 +83,30 @@ router.post("/projects/:projectId/users", authenticate, authorize(['ADMIN', 'AUT
   }
 });
 
-router.delete("/projects/:projectId/users/:userId", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
+router.delete("/projects/:projectId/users/:userId", authenticate, authorizeProjectRole(["TEST_LEAD"]), async (req, res) => {
   try {
     const projectId = parseInt(req.params.projectId as string);
     const userId = parseInt(req.params.userId as string);
     if (isNaN(projectId) || isNaN(userId)) return res.status(400).json({ error: "Invalid IDs" });
 
-    await db.delete(projectAssignmentsTable).where(
-      and(
+    const targetAssignment = await db.query.projectAssignmentsTable.findFirst({
+      where: and(
         eq(projectAssignmentsTable.projectId, projectId),
         eq(projectAssignmentsTable.userId, userId)
-      )
-    );
+      ),
+    });
+    if (!targetAssignment) return res.status(404).json({ error: "Assignment not found" });
+
+    // Prevent Test Lead from removing themselves or another Test Lead
+    if (targetAssignment.role === "TEST_LEAD" && req.user!.role !== "ADMIN") {
+      return res.status(403).json({ error: "Only an admin can remove a Test Lead. A project must always have a Test Lead." });
+    }
+
+    await db.delete(projectAssignmentsTable)
+      .where(and(
+        eq(projectAssignmentsTable.projectId, projectId),
+        eq(projectAssignmentsTable.userId, userId)
+      ));
 
     res.status(204).send();
   } catch (err) {

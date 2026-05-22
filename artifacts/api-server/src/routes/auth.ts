@@ -15,7 +15,7 @@ const RegisterBody = z.object({
   password: z.string().min(6),
   name: z.string().min(1),
   email: z.string().email().optional().nullable(),
-  role: z.enum(["ADMIN", "AUTHOR", "USER"]).default("USER"),
+  role: z.enum(["ADMIN", "USER"]).default("USER"),
 });
 
 router.post("/login", async (req, res) => {
@@ -33,6 +33,10 @@ router.post("/login", async (req, res) => {
     const isValid = await bcrypt.compare(body.password, user.passwordHash);
     if (!isValid) {
       return res.status(401).json({ error: "Invalid username or password" });
+    }
+    
+    if (!user.isActive) {
+      return res.status(403).json({ error: "Account has been suspended. Contact your administrator." });
     }
     
     const token = jwt.sign(

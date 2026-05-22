@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, teamDiscussionsTable, teamDiscussionParticipantsTable, defectsTable, defectNotesTable, testRunsTable, projectsTable, projectAssignmentsTable, usersTable, testCasesTable, testStepsTable, executionsTable, stepResultsTable, attachmentsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { z } from "zod";
-import { authenticate, authorize } from "../middlewares/auth";
+import { authenticate, checkProjectRole } from "../middlewares/auth";
 
 const router = Router();
 
@@ -24,7 +24,7 @@ async function assertTestLeadOrAdmin(req: any, res: any, projectId: number): Pro
       eq(projectAssignmentsTable.userId, req.user!.userId),
     ),
   });
-  if (!assignment || !["TEST_LEAD", "TEST_AUTHOR"].includes(assignment.role)) {
+  if (!assignment || !["TEST_LEAD"].includes(assignment.role)) {
     res.status(403).json({ error: "Insufficient permissions" });
     return false;
   }
@@ -35,7 +35,7 @@ function defaultCanAddNotes(meetingType: string): boolean {
   return meetingType === "post_mortem";
 }
 
-router.post("/test-runs/:testRunId/discussions", authenticate, authorize(["ADMIN", "AUTHOR"]), async (req, res) => {
+router.post("/test-runs/:testRunId/discussions", authenticate, async (req, res) => {
   try {
     const testRunId = parseInt(req.params.testRunId as string);
     if (isNaN(testRunId)) return res.status(400).json({ error: "Invalid test run ID" });
@@ -46,6 +46,9 @@ router.post("/test-runs/:testRunId/discussions", authenticate, authorize(["ADMIN
       where: eq(testRunsTable.id, testRunId),
     });
     if (!run) return res.status(404).json({ error: "Test run not found" });
+
+    const allowed = await checkProjectRole(req, run.projectId, ["TEST_LEAD"]);
+    if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
 
     const [discussion] = await db.insert(teamDiscussionsTable).values({
       projectId: run.projectId,
@@ -101,7 +104,7 @@ router.get("/discussions/:discussionId", authenticate, async (req, res) => {
           eq(projectAssignmentsTable.userId, req.user!.userId),
         ),
       });
-      if (!assignment || !["TEST_LEAD", "TEST_AUTHOR"].includes(assignment.role)) {
+      if (!assignment || !["TEST_LEAD"].includes(assignment.role)) {
         return res.status(403).json({ error: "Insufficient permissions" });
       }
     }
@@ -117,7 +120,7 @@ router.get("/discussions/:discussionId", authenticate, async (req, res) => {
   }
 });
 
-router.post("/discussions/:discussionId/participants", authenticate, authorize(["ADMIN", "AUTHOR"]), async (req, res) => {
+router.post("/discussions/:discussionId/participants", authenticate, async (req, res) => {
   try {
     const discussionId = parseInt(req.params.discussionId as string);
     if (isNaN(discussionId)) return res.status(400).json({ error: "Invalid discussion ID" });
@@ -128,6 +131,9 @@ router.post("/discussions/:discussionId/participants", authenticate, authorize([
       where: eq(teamDiscussionsTable.id, discussionId),
     });
     if (!discussion) return res.status(404).json({ error: "Discussion not found" });
+
+    const allowed = await checkProjectRole(req, discussion.projectId, ["TEST_LEAD"]);
+    if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
 
     const existing = await db.query.teamDiscussionParticipantsTable.findFirst({
       where: and(
@@ -153,7 +159,7 @@ router.post("/discussions/:discussionId/participants", authenticate, authorize([
   }
 });
 
-router.delete("/discussions/:discussionId/participants/:userId", authenticate, authorize(["ADMIN", "AUTHOR"]), async (req, res) => {
+router.delete("/discussions/:discussionId/participants/:userId", authenticate, async (req, res) => {
   try {
     const discussionId = parseInt(req.params.discussionId as string);
     const userId = parseInt(req.params.userId as string);
@@ -163,6 +169,9 @@ router.delete("/discussions/:discussionId/participants/:userId", authenticate, a
       where: eq(teamDiscussionsTable.id, discussionId),
     });
     if (!discussion) return res.status(404).json({ error: "Discussion not found" });
+
+    const allowed = await checkProjectRole(req, discussion.projectId, ["TEST_LEAD"]);
+    if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
 
     await db.delete(teamDiscussionParticipantsTable)
       .where(and(
@@ -177,7 +186,7 @@ router.delete("/discussions/:discussionId/participants/:userId", authenticate, a
   }
 });
 
-router.patch("/discussions/:discussionId/end", authenticate, authorize(["ADMIN", "AUTHOR"]), async (req, res) => {
+router.patch("/discussions/:discussionId/end", authenticate, async (req, res) => {
   try {
     const discussionId = parseInt(req.params.discussionId as string);
     if (isNaN(discussionId)) return res.status(400).json({ error: "Invalid discussion ID" });
@@ -186,6 +195,9 @@ router.patch("/discussions/:discussionId/end", authenticate, authorize(["ADMIN",
       where: eq(teamDiscussionsTable.id, discussionId),
     });
     if (!discussion) return res.status(404).json({ error: "Discussion not found" });
+
+    const allowed = await checkProjectRole(req, discussion.projectId, ["TEST_LEAD"]);
+    if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
 
     await db.update(teamDiscussionsTable)
       .set({ isActive: false, endedAt: new Date() })

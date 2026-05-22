@@ -81,7 +81,12 @@ router.post("/test-cases/:testCaseId/executions", authenticate, async (req, res)
         });
       }
 
-      // 2. Check assignment
+      // 2. Check if already completed
+      if (run.status === "completed") {
+        return res.status(403).json({ error: "Test run has already been completed and submitted" });
+      }
+
+      // 3. Check assignment
       const testCase = await db.query.testCasesTable.findFirst({
         where: eq(testCasesTable.id, testCaseId),
       });
@@ -116,6 +121,17 @@ router.post("/test-cases/:testCaseId/executions", authenticate, async (req, res)
         // If unassigned, we might want to block or allow any tester to "pick it up".
         // The requirement says "testers can only record results for use cases assigned to them".
         return res.status(403).json({ error: "No tester has been assigned to this use case yet" });
+      }
+
+      // 4. Check if this test case already has an execution in this run
+      const existingExec = await db.query.executionsTable.findFirst({
+        where: and(
+          eq(executionsTable.testCaseId, testCaseId),
+          eq(executionsTable.testRunId, body.testRunId)
+        ),
+      });
+      if (existingExec) {
+        return res.status(403).json({ error: "This test case has already been executed in this test run" });
       }
     }
     // ───────────────────────────────────────────────────────────────────────

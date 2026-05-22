@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { db, useCasesTable, testCasesTable } from "@workspace/db";
+import { db, useCasesTable, testCasesTable, projectsTable } from "@workspace/db";
 import { eq, count } from "drizzle-orm";
 import { CreateUseCaseBody } from "@workspace/api-zod";
-import { authenticate, authorize } from "../middlewares/auth";
+import { authenticate, authorizeProjectRole, checkProjectRole } from "../middlewares/auth";
 
 const router = Router();
 
@@ -23,7 +23,7 @@ router.get("/projects/:projectId/use-cases", async (req, res) => {
   }
 });
 
-router.post("/projects/:projectId/use-cases", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
+router.post("/projects/:projectId/use-cases", authenticate, authorizeProjectRole(["TEST_LEAD", "TEST_AUTHOR"]), async (req, res) => {
   try {
     const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) return res.status(400).json({ error: "Invalid project ID" });
@@ -48,12 +48,20 @@ router.post("/projects/:projectId/use-cases", authenticate, authorize(['ADMIN', 
   }
 });
 
-router.put("/use-cases/:useCaseId", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
+router.put("/use-cases/:useCaseId", authenticate, async (req, res) => {
   try {
     const useCaseId = parseInt(req.params.useCaseId as string);
     if (isNaN(useCaseId)) return res.status(400).json({ error: "Invalid use case ID" });
 
     const body = CreateUseCaseBody.parse(req.body);
+
+    const existing = await db.query.useCasesTable.findFirst({
+      where: eq(useCasesTable.id, useCaseId),
+    });
+    if (!existing) return res.status(404).json({ error: "Use case not found" });
+
+    const allowed = await checkProjectRole(req, existing.projectId, ["TEST_LEAD", "TEST_AUTHOR"]);
+    if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
 
     const updateQuery = db
       .update(useCasesTable)
@@ -76,10 +84,18 @@ router.put("/use-cases/:useCaseId", authenticate, authorize(['ADMIN', 'AUTHOR'])
   }
 });
 
-router.delete("/use-cases/:useCaseId", authenticate, authorize(['ADMIN', 'AUTHOR']), async (req, res) => {
+router.delete("/use-cases/:useCaseId", authenticate, async (req, res) => {
   try {
     const useCaseId = parseInt(req.params.useCaseId as string);
     if (isNaN(useCaseId)) return res.status(400).json({ error: "Invalid use case ID" });
+
+    const existing = await db.query.useCasesTable.findFirst({
+      where: eq(useCasesTable.id, useCaseId),
+    });
+    if (!existing) return res.status(404).json({ error: "Use case not found" });
+
+    const allowed = await checkProjectRole(req, existing.projectId, ["TEST_LEAD", "TEST_AUTHOR"]);
+    if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
 
     await db.delete(useCasesTable).where(eq(useCasesTable.id, useCaseId));
     res.status(204).send();

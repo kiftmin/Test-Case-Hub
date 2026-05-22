@@ -137,11 +137,22 @@ export default function TesterDashboard() {
               )}>
                 <CardHeader className="pb-3">
                   <div className="flex justify-between items-start mb-2">
-                    <Badge variant="outline" className={cn(
-                      run.isAvailable ? "bg-green-500/10 text-green-600 border-green-500/20" : "bg-amber-500/10 text-amber-600 border-amber-500/20"
-                    )}>
-                      {run.isAvailable ? "Available Now" : "Scheduled"}
-                    </Badge>
+                    <div className="flex gap-1.5 flex-wrap">
+                      <Badge variant="outline" className={cn(
+                        run.isAvailable ? "bg-green-500/10 text-green-600 border-green-500/20" : "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                      )}>
+                        {run.isAvailable ? "Available Now" : "Scheduled"}
+                      </Badge>
+                      {(() => {
+                        if (run.myPendingCount === run.myUseCaseCount) {
+                          return <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">NEW</Badge>;
+                        } else if (run.myPendingCount === 0) {
+                          return <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">COMPLETED</Badge>;
+                        } else {
+                          return <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">IN PROGRESS</Badge>;
+                        }
+                      })()}
+                    </div>
                     {!run.isAvailable && <Countdown targetDate={run.scheduledAt} onComplete={refetchRuns} />}
                   </div>
                   <CardTitle className="text-base line-clamp-1">{run.name}</CardTitle>
@@ -152,7 +163,14 @@ export default function TesterDashboard() {
                 <CardContent className="pb-4">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">{run.myUseCaseCount} use cases assigned</span>
-                    {run.isAvailable ? (
+                    {run.myPendingCount === 0 ? (
+                      <Link href={`/tester/${run.projectCode}?testRunId=${run.id}`}>
+                        <Button size="sm" variant="secondary" className="h-8">
+                          <ClipboardCheck className="w-4 h-4 mr-1.5" />
+                          View
+                        </Button>
+                      </Link>
+                    ) : run.isAvailable ? (
                       <Link href={`/tester/${run.projectCode}?testRunId=${run.id}`}>
                         <Button size="sm" className="h-8">
                           <PlayCircle className="w-4 h-4 mr-1.5" />

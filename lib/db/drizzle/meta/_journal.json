@@ -8,6 +8,13 @@
       "when": 1779284802796,
       "tag": "0000_friendly_songbird",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1779364472922,
+      "tag": "0001_bored_lizard",
+      "breakpoints": true
     }
   ]
 }

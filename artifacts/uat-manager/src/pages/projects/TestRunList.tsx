@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useParams } from "wouter";
-import { getAuthUser } from "@/lib/auth";
+import { getAuthUser, getAuthToken } from "@/lib/auth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, formatDistanceToNow } from "date-fns";
-import { useGetProject, getGetProjectQueryKey } from "@workspace/api-client-react";
+import { useGetProject, getGetProjectQueryKey, useListProjectUsers, getListProjectUsersQueryKey } from "@workspace/api-client-react";
 
 const API_BASE = "/api";
 
@@ -94,7 +94,10 @@ function CreateTestRunDialog({
     mutationFn: async () => {
       const res = await fetch(`${API_BASE}/projects/${projectId}/test-runs`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${getAuthToken()}`,
+        },
         body: JSON.stringify({ name, scheduledAt: new Date(scheduledAt).toISOString() }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Failed to create");
@@ -171,12 +174,19 @@ export default function TestRunList() {
   const { data: project } = useGetProject(id, {
     query: { enabled: !!id, queryKey: getGetProjectQueryKey(id) }
   });
+  const { data: assignments = [] } = useListProjectUsers(id, {
+    query: { enabled: !!id, queryKey: getListProjectUsersQueryKey(id) }
+  });
   const isSignedOff = (project as any)?.isSignedOff === 1;
+  const projectRole = assignments.find((a: any) => a.userId === user?.id)?.role;
+  const canCreateRun = user?.role === "ADMIN" || projectRole === "TEST_LEAD";
 
   const { data: runs = [], isLoading } = useQuery<TestRun[]>({
     queryKey: ["test-runs", id],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/projects/${id}/test-runs`);
+      const res = await fetch(`${API_BASE}/projects/${id}/test-runs`, {
+        headers: { "Authorization": `Bearer ${getAuthToken()}` },
+      });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
@@ -238,7 +248,7 @@ export default function TestRunList() {
         title="Test Runs"
         description="Schedule and manage test runs for this project."
         actions={
-          user?.role !== 'USER' && (
+          canCreateRun && (
             <Button size="sm" onClick={() => setShowCreate(true)}>
               <Plus className="w-4 h-4 mr-2" /> New Test Run
             </Button>
@@ -259,7 +269,7 @@ export default function TestRunList() {
           <p className="text-muted-foreground mt-1 text-sm">
             Create your first test run to get started.
           </p>
-          {user?.role !== 'USER' && (
+          {canCreateRun && (
             <Button size="sm" className="mt-4" onClick={() => setShowCreate(true)}>
               <Plus className="w-4 h-4 mr-2" /> New Test Run
             </Button>

@@ -16,7 +16,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { ChevronLeft, Bug, AlertTriangle, RotateCcw, ThumbsUp, ThumbsDown, MessageSquare, ExternalLink } from "lucide-react";
+import { ChevronLeft, Bug, AlertTriangle, RotateCcw, ThumbsUp, ThumbsDown, MessageSquare, ExternalLink, MessagesSquare } from "lucide-react";
 import { toast } from "sonner";
 import { getAuthUser } from "@/lib/auth";
 import {
@@ -31,6 +31,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { useQueryClient } from "@tanstack/react-query";
+import { TeamDiscussionDialog } from "@/components/projects/TeamDiscussionDialog";
+import { ActiveDiscussionBanner } from "@/components/projects/ActiveDiscussionBanner";
 
 const statusColors: Record<string, string> = {
   "New Defect": "bg-red-100 text-red-700 border-red-200",
@@ -69,6 +71,8 @@ export default function DefectLog() {
   const [rejectReason, setRejectReason] = useState("");
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [activeDefectId, setActiveDefectId] = useState<number | null>(null);
+  const [discussionId, setDiscussionId] = useState<number | null>(null);
+  const [showStartDiscussion, setShowStartDiscussion] = useState(false);
 
   const openModal = (modal: string, defectId: number) => {
     setActiveModal(modal);
@@ -156,9 +160,32 @@ export default function DefectLog() {
         </Link>
       </div>
 
-      <PageHeader
-        title={`Defect Log${testRun ? ` — ${testRun.name}` : ""}`}
-        description="Review and manage defects identified during this test run."
+      <div className="flex items-center justify-between gap-4 mb-2">
+        <PageHeader
+          title={`Defect Log${testRun ? ` — ${testRun.name}` : ""}`}
+          description="Review and manage defects identified during this test run."
+        />
+        {isTestLead && !discussionId && (
+          <Button variant="outline" size="sm" onClick={() => setShowStartDiscussion(true)} className="shrink-0">
+            <MessagesSquare className="w-4 h-4 mr-1" /> Start Team Discussion
+          </Button>
+        )}
+      </div>
+
+      {discussionId && (
+        <ActiveDiscussionBanner
+          discussionId={discussionId}
+          projectId={pid}
+          onEnded={() => setDiscussionId(null)}
+        />
+      )}
+
+      <TeamDiscussionDialog
+        projectId={pid}
+        testRunId={tid}
+        open={showStartDiscussion}
+        onOpenChange={setShowStartDiscussion}
+        onSuccess={(id) => setDiscussionId(id)}
       />
 
       {isLoading ? (

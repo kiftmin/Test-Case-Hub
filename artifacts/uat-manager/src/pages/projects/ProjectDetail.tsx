@@ -59,6 +59,7 @@ export default function ProjectDetail() {
   const isTestLead = isAdmin || projectRole === "TEST_LEAD";
   const isBusinessOwner = projectRole === "BUSINESS_OWNER";
   const isAuthorOrAdmin = isAdmin || projectRole === "TEST_AUTHOR";
+  const canEditTestPlan = isAdmin || projectRole === "TEST_LEAD" || projectRole === "TEST_AUTHOR";
   const isSignedOff = (project as any)?.isSignedOff === 1;
 
   const signOffData = (project as any)?.signOffData ? JSON.parse((project as any).signOffData) : null;
@@ -72,11 +73,11 @@ export default function ProjectDetail() {
   });
 
   const signOffMutation = useMutation({
-    mutationFn: async (confirmations: any) => {
+    mutationFn: async ({ role, note }: { role: string; note?: string }) => {
       const res = await fetch(`/api/projects/${id}/sign-off`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user?.id, confirmations }),
+        body: JSON.stringify({ role, note }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -85,7 +86,7 @@ export default function ProjectDetail() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Project signed off successfully" });
+      toast({ title: "Signature recorded successfully" });
       setShowSignOff(false);
       queryClient.invalidateQueries({ queryKey: getGetProjectQueryKey(id) });
     },
@@ -131,6 +132,16 @@ export default function ProjectDetail() {
         description={
           <div className="flex items-center gap-4 mt-1">
             <span className="text-sm text-muted-foreground">Code: {project.projectCode} • Version {project.version}.0</span>
+            {signOffData?.testLead && (
+              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-green-100 text-green-800 border border-green-200 rounded-full text-[10px] font-bold uppercase">
+                <CheckCircle2 className="w-3 h-3" /> TL Signed
+              </div>
+            )}
+            {signOffData?.businessOwner && (
+              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-green-100 text-green-800 border border-green-200 rounded-full text-[10px] font-bold uppercase">
+                <CheckCircle2 className="w-3 h-3" /> BO Signed
+              </div>
+            )}
             {(project as any).isSignedOff === 1 && (
               <div className="flex items-center gap-1.5 px-2 py-0.5 bg-green-100 text-green-800 border border-green-200 rounded-full text-[10px] font-bold uppercase">
                 <CheckCircle2 className="w-3 h-3" /> Signed Off
@@ -253,14 +264,14 @@ export default function ProjectDetail() {
               project={project}
               selectedTestCaseId={selectedTestCaseId}
               onSelectTestCase={setSelectedTestCaseId}
-              readOnly={isSignedOff || !isAuthorOrAdmin}
+              readOnly={isSignedOff || !canEditTestPlan}
             />
           </div>
         </Card>
 
         <Card className="flex-1 flex flex-col overflow-hidden border-border bg-card">
           {selectedTestCaseId ? (
-            <TestCaseEditor testCaseId={selectedTestCaseId} readOnly={isSignedOff || !isAuthorOrAdmin} />
+            <TestCaseEditor testCaseId={selectedTestCaseId} readOnly={isSignedOff || !canEditTestPlan} />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
               <LayoutList className="w-12 h-12 text-muted-foreground/50 mb-4" />
@@ -276,7 +287,9 @@ export default function ProjectDetail() {
           open={showSignOff}
           onOpenChange={setShowSignOff}
           project={project}
-          onSignOff={(confirmations) => signOffMutation.mutateAsync(confirmations)}
+          userRole={projectRole}
+          signOffData={signOffData}
+          onSignOff={(role, note) => signOffMutation.mutateAsync({ role, note })}
           isPending={signOffMutation.isPending}
         />
       )}

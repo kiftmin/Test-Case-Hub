@@ -186,6 +186,7 @@ export interface User {
   name: string;
   email?: string | null;
   role: string;
+  isActive: boolean;
   createdAt: string;
 }
 

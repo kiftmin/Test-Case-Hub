@@ -11,7 +11,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronLeft, UserPlus, UserMinus, Bug } from "lucide-react";
+import { ChevronLeft, UserPlus, UserMinus, Bug, Ban, CheckCircle } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -19,6 +19,16 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { roleBadgeClass, roleLabel } from "@/lib/role-utils";
 import { getAuthUser } from "@/lib/auth";
@@ -46,6 +56,7 @@ export default function ProjectUsers() {
 
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [selectedRole, setSelectedRole] = useState<string>("TEST_LEAD");
+  const [confirmRemoveUserId, setConfirmRemoveUserId] = useState<number | null>(null);
 
   const handleAssign = async () => {
     if (!selectedUserId) return;
@@ -92,6 +103,8 @@ export default function ProjectUsers() {
   ) || [];
 
   const isAdmin = currentUser?.role === "ADMIN";
+  const currentUserAssignment = assignments?.find(a => a.userId === currentUser?.id);
+  const isTestLead = currentUserAssignment?.role === "TEST_LEAD";
 
   return (
     <AppLayout>
@@ -121,13 +134,20 @@ export default function ProjectUsers() {
                 </div>
               ) : (
                 assignments?.map((assignment) => (
-                  <div key={assignment.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div key={assignment.id} className={`flex items-center justify-between p-3 border rounded-lg ${assignment.user?.isActive === false ? "opacity-60 bg-red-50/30 border-red-200" : ""}`}>
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                         <UserPlus className="w-5 h-5 text-primary" />
                       </div>
                       <div>
-                        <div className="font-medium">{assignment.user?.name}</div>
+                        <div className="font-medium flex items-center gap-2">
+                          {assignment.user?.name}
+                          {assignment.user?.isActive === false && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] text-red-600 font-semibold uppercase tracking-wider">
+                              <Ban className="w-3 h-3" /> Suspended
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-muted-foreground">{assignment.user?.username}</div>
                       </div>
                     </div>
@@ -142,12 +162,12 @@ export default function ProjectUsers() {
                           </Button>
                         </Link>
                       )}
-                      {!isSignedOff && (isAdmin || assignment.userId === currentUser?.id) && (
+                      {!isSignedOff && (isAdmin || (isTestLead && assignment.userId !== currentUser?.id)) && (
                         <Button
                           variant="ghost"
                           size="icon"
                           className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => handleRemove(assignment.userId)}
+                          onClick={() => setConfirmRemoveUserId(assignment.userId)}
                         >
                           <UserMinus className="w-4 h-4" />
                         </Button>
@@ -174,8 +194,8 @@ export default function ProjectUsers() {
                   </SelectTrigger>
                   <SelectContent>
                     {unassignedUsers.map(user => (
-                      <SelectItem key={user.id} value={user.id.toString()}>
-                        {user.name} ({user.username})
+                      <SelectItem key={user.id} value={user.id.toString()} className={user.isActive === false ? "text-red-600" : ""}>
+                        {user.name} ({user.username}){user.isActive === false ? " — Suspended" : ""}
                       </SelectItem>
                     ))}
                     {unassignedUsers.length === 0 && (
@@ -215,6 +235,23 @@ export default function ProjectUsers() {
           </Card>
         )}
       </div>
+
+      <AlertDialog open={confirmRemoveUserId !== null} onOpenChange={(open) => { if (!open) setConfirmRemoveUserId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove User from Project</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove this user from the project? This action can be undone by re-assigning them.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConfirmRemoveUserId(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { const id = confirmRemoveUserId; setConfirmRemoveUserId(null); if (id !== null) handleRemove(id); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
