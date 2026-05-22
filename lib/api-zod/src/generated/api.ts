@@ -2149,7 +2149,7 @@ export const UpdateBugStatusParams = zod.object({
 })
 
 export const UpdateBugStatusBody = zod.object({
-  "status": zod.enum(['OPEN', 'ASSIGNED', 'RESOLVED', 'TEST', 'FAILED_TO_RESOLVE', 'CLOSED']),
+  "status": zod.enum(['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED', 'TEST', 'FAILED_TO_RESOLVE', 'CLOSED', 'REOPENED']),
   "reason": zod.string().optional()
 })
 
@@ -2522,7 +2522,7 @@ export const CreateDiscussionParams = zod.object({
 })
 
 export const CreateDiscussionBody = zod.object({
-  "meetingType": zod.enum(['Defect Review', 'Post-Mortem']),
+  "meetingType": zod.enum(['defect_review', 'post_mortem']),
   "participantIds": zod.array(zod.number())
 })
 
@@ -2539,7 +2539,7 @@ export const GetDiscussionResponse = zod.object({
   "projectId": zod.number(),
   "testRunId": zod.number(),
   "initiatedByUserId": zod.number(),
-  "meetingType": zod.enum(['Defect Review', 'Post-Mortem']),
+  "meetingType": zod.enum(['defect_review', 'post_mortem']),
   "isActive": zod.boolean(),
   "createdAt": zod.coerce.date(),
   "endedAt": zod.coerce.date().nullish(),
@@ -2583,7 +2583,7 @@ export const EndDiscussionResponse = zod.object({
   "projectId": zod.number(),
   "testRunId": zod.number(),
   "initiatedByUserId": zod.number(),
-  "meetingType": zod.enum(['Defect Review', 'Post-Mortem']),
+  "meetingType": zod.enum(['defect_review', 'post_mortem']),
   "isActive": zod.boolean(),
   "createdAt": zod.coerce.date(),
   "endedAt": zod.coerce.date().nullish(),
@@ -2643,7 +2643,7 @@ export const RemoveParticipantResponse = zod.object({
   "projectId": zod.number(),
   "testRunId": zod.number(),
   "initiatedByUserId": zod.number(),
-  "meetingType": zod.enum(['Defect Review', 'Post-Mortem']),
+  "meetingType": zod.enum(['defect_review', 'post_mortem']),
   "isActive": zod.boolean(),
   "createdAt": zod.coerce.date(),
   "endedAt": zod.coerce.date().nullish(),

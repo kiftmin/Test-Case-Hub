@@ -14,7 +14,13 @@ export function getAuthToken() {
 
 export function getAuthUser(): User | null {
   const user = localStorage.getItem(USER_KEY);
-  return user ? JSON.parse(user) : null;
+  if (!user) return null;
+  try {
+    return JSON.parse(user) as User;
+  } catch {
+    clearAuth();
+    return null;
+  }
 }
 
 export function clearAuth() {

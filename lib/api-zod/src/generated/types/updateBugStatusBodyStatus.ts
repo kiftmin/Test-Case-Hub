@@ -12,8 +12,10 @@ export type UpdateBugStatusBodyStatus = typeof UpdateBugStatusBodyStatus[keyof t
 export const UpdateBugStatusBodyStatus = {
   OPEN: 'OPEN',
   ASSIGNED: 'ASSIGNED',
+  IN_PROGRESS: 'IN_PROGRESS',
   RESOLVED: 'RESOLVED',
   TEST: 'TEST',
   FAILED_TO_RESOLVE: 'FAILED_TO_RESOLVE',
   CLOSED: 'CLOSED',
+  REOPENED: 'REOPENED',
 } as const;

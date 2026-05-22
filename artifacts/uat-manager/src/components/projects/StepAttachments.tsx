@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/dialog";
 import { Paperclip, Trash2, FileIcon, Loader2, Plus, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getAuthToken } from "@/lib/auth";
+import { resolveUploadUrl } from "@/lib/upload-url";
 
 interface StepAttachmentsProps {
   stepId: number;
@@ -44,8 +46,10 @@ export function StepAttachments({ stepId, testCaseId, attachments, readOnly }: S
       const formData = new FormData();
       formData.append("file", file);
 
+      const token = getAuthToken();
       const response = await fetch("/api/upload", {
         method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
       });
 
@@ -147,7 +151,7 @@ export function StepAttachments({ stepId, testCaseId, attachments, readOnly }: S
                   <div className="flex items-center gap-2 overflow-hidden">
                     <FileIcon className="w-4 h-4 text-blue-500 shrink-0" />
                     <a 
-                      href={file.fileUrl} 
+                      href={resolveUploadUrl(file.fileUrl)} 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="text-sm truncate hover:underline text-foreground"

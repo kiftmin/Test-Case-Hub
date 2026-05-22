@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Paperclip, X, Loader2, Image as ImageIcon, Check } from "lucide-react";
 import { useCreateAttachment, useDeleteAttachment } from "@workspace/api-client-react";
 import { getAuthToken } from "@/lib/auth";
+import { resolveUploadUrl } from "@/lib/upload-url";
+import { toast } from "sonner";
 
 interface EvidenceUploadProps {
   entityId: number;
@@ -35,24 +37,26 @@ export function EvidenceUpload({ entityId, entityType, attachments = [], onUpdat
         body: formData,
       });
 
-      if (res.ok) {
-        const fileData = await res.json();
-        await createAttachment.mutateAsync({
-          data: {
-            entityId,
-            entityType,
-            field: "evidence",
-            fileName: fileData.originalName,
-            fileUrl: fileData.url,
-            fileType: fileData.mimetype,
-          }
-        });
-        setSuccess(true);
-        setTimeout(() => setSuccess(false), 2000);
-        if (onUpdate) onUpdate();
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error((errBody as { error?: string }).error ?? "Upload failed");
       }
+      const fileData = await res.json();
+      await createAttachment.mutateAsync({
+        data: {
+          entityId,
+          entityType,
+          field: "evidence",
+          fileName: fileData.originalName,
+          fileUrl: fileData.url,
+          fileType: fileData.mimetype,
+        },
+      });
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
+      if (onUpdate) onUpdate();
     } catch (err) {
-      console.error("Upload failed", err);
+      toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setIsUploading(false);
       e.target.value = "";
@@ -73,8 +77,8 @@ export function EvidenceUpload({ entityId, entityType, attachments = [], onUpdat
               key={file.id} 
               className="group relative flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/50 border border-border text-xs font-medium pr-8"
             >
-              {file.fileType.startsWith('image/') ? <ImageIcon className="w-3.5 h-3.5" /> : <Paperclip className="w-3.5 h-3.5" />}
-              <a href={file.fileUrl} target="_blank" rel="noopener noreferrer" className="hover:underline truncate max-w-[150px]">
+              {file.fileType?.startsWith("image/") ? <ImageIcon className="w-3.5 h-3.5" /> : <Paperclip className="w-3.5 h-3.5" />}
+              <a href={resolveUploadUrl(file.fileUrl)} target="_blank" rel="noopener noreferrer" className="hover:underline truncate max-w-[150px]">
                 {file.fileName}
               </a>
               <button 

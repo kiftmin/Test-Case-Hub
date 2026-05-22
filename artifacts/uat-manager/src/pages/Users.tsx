@@ -64,7 +64,7 @@ export default function UserManagement() {
     setIsOpen(true);
   };
 
-  const openEdit = (user: { id: number; username: string; name: string; email: string | null; role: string; isActive: boolean }) => {
+  const openEdit = (user: { id: number; username: string; name: string; email?: string | null; role: string; isActive: boolean }) => {
     setEditUserId(user.id);
     setEditUser({ id: user.id, username: user.username, isActive: user.isActive });
     setFormData({ username: user.username, password: "", name: user.name, email: user.email ?? "", role: user.role });

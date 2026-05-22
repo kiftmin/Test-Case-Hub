@@ -291,6 +291,10 @@ router.get("/dashboard/developer/:userId/bugs", authenticate, async (req, res) =
     const userId = parseInt(req.params.userId as string);
     if (isNaN(userId)) return res.status(400).json({ error: "Invalid user ID" });
 
+    if (req.user!.role !== "ADMIN" && req.user!.userId !== userId) {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
+
     const bugs = await db.query.bugsTable.findMany({
       where: eq(bugsTable.assignedDeveloperId, userId),
       with: {

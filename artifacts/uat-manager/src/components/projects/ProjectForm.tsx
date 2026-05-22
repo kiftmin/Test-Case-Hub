@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useListUsers } from "@workspace/api-client-react";
+import { useListUsers, getListUsersQueryKey } from "@workspace/api-client-react";
 import { TestProjectDetail } from "@workspace/api-client-react";
 import { getAuthUser } from "@/lib/auth";
 
@@ -28,15 +28,21 @@ const projectSchema = z.object({
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
 
+export type ProjectFormSubmitData = Omit<ProjectFormValues, "testLeadId"> & {
+  testLeadId?: number;
+};
+
 interface ProjectFormProps {
   initialData?: TestProjectDetail;
-  onSubmit: (data: ProjectFormValues & { testLeadId?: number }) => void;
+  onSubmit: (data: ProjectFormSubmitData) => void;
   isSubmitting?: boolean;
 }
 
 export function ProjectForm({ initialData, onSubmit, isSubmitting }: ProjectFormProps) {
   const currentUser = getAuthUser();
-  const { data: users } = useListUsers({ query: { enabled: currentUser?.role === "ADMIN" } });
+  const { data: users } = useListUsers({
+    query: { queryKey: getListUsersQueryKey(), enabled: currentUser?.role === "ADMIN" },
+  });
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
@@ -51,9 +57,10 @@ export function ProjectForm({ initialData, onSubmit, isSubmitting }: ProjectForm
   });
 
   const handleSubmit = (values: ProjectFormValues) => {
+    const { testLeadId: testLeadIdStr, ...rest } = values;
     onSubmit({
-      ...values,
-      testLeadId: values.testLeadId ? parseInt(values.testLeadId, 10) : undefined,
+      ...rest,
+      testLeadId: testLeadIdStr ? parseInt(testLeadIdStr, 10) : undefined,
     });
   };
 

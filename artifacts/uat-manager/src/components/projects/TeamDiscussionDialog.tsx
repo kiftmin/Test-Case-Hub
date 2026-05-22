@@ -16,7 +16,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useListProjectUsers, useCreateDiscussion, getListProjectUsersQueryKey } from "@workspace/api-client-react";
+import {
+  useListProjectUsers,
+  useCreateDiscussion,
+  getListProjectUsersQueryKey,
+  CreateDiscussionBodyMeetingType,
+  type CreateDiscussionBodyMeetingType as MeetingType,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -29,21 +35,24 @@ interface TeamDiscussionDialogProps {
 }
 
 export function TeamDiscussionDialog({ projectId, testRunId, open, onOpenChange, onSuccess }: TeamDiscussionDialogProps) {
-  const { data: assignments = [] } = useListProjectUsers(projectId, { query: { queryKey: getListProjectUsersQueryKey(projectId), enabled: !!projectId } });
+  const { data: assignments = [] } = useListProjectUsers(projectId, {
+    query: { queryKey: getListProjectUsersQueryKey(projectId), enabled: !!projectId },
+  });
   const createDiscussion = useCreateDiscussion();
   const queryClient = useQueryClient();
 
-  const [meetingType, setMeetingType] = useState<string>("defect_review");
+  const [meetingType, setMeetingType] = useState<MeetingType>(CreateDiscussionBodyMeetingType.defect_review);
+  const [selectedParticipants, setSelectedParticipants] = useState<number[]>([]);
 
   const handleToggleParticipant = (userId: number) => {
     setSelectedParticipants((prev) =>
-      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId],
     );
   };
 
-  const handleMeetingTypeChange = (value: string) => {
+  const handleMeetingTypeChange = (value: MeetingType) => {
     setMeetingType(value);
-    if (value === "post_mortem") {
+    if (value === CreateDiscussionBodyMeetingType.post_mortem) {
       const bizOwners = assignments
         .filter((a) => a.role === "BUSINESS_OWNER")
         .map((a) => a.userId);
@@ -61,7 +70,7 @@ export function TeamDiscussionDialog({ projectId, testRunId, open, onOpenChange,
     try {
       const result = await createDiscussion.mutateAsync({
         testRunId,
-        data: { meetingType: meetingType as "defect_review" | "post_mortem", participantIds: selectedParticipants },
+        data: { meetingType, participantIds: selectedParticipants },
       });
       toast.success("Team discussion started");
       queryClient.invalidateQueries({ queryKey: ["discussions"] });
@@ -82,13 +91,13 @@ export function TeamDiscussionDialog({ projectId, testRunId, open, onOpenChange,
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label>Meeting Type</Label>
-            <Select value={meetingType} onValueChange={handleMeetingTypeChange}>
+            <Select value={meetingType} onValueChange={(v) => handleMeetingTypeChange(v as MeetingType)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="defect_review">Defect Review</SelectItem>
-                <SelectItem value="post_mortem">Post-Mortem</SelectItem>
+                <SelectItem value={CreateDiscussionBodyMeetingType.defect_review}>Defect Review</SelectItem>
+                <SelectItem value={CreateDiscussionBodyMeetingType.post_mortem}>Post-Mortem</SelectItem>
               </SelectContent>
             </Select>
           </div>

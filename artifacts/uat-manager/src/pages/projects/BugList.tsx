@@ -9,6 +9,9 @@ import {
   useUpdateBugNotes,
   useReassignBug,
   useListUsers,
+  getGetProjectQueryKey,
+  getListBugsQueryKey,
+  getListProjectUsersQueryKey,
 } from "@workspace/api-client-react";
 import type { ListBugsParams } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -63,9 +66,15 @@ export default function BugList() {
   const [notesVal, setNotesVal] = useState("");
   const [reassignDevId, setReassignDevId] = useState("");
 
-  const { data: project } = useGetProject(pid, { query: { enabled: !!pid } });
-  const { data: bugs, isLoading } = useListBugs(pid, filters, { query: { enabled: !!pid } });
-  const { data: assignments = [] } = useListProjectUsers(pid, { query: { enabled: !!pid } });
+  const { data: project } = useGetProject(pid, {
+    query: { queryKey: getGetProjectQueryKey(pid), enabled: !!pid },
+  });
+  const { data: bugs, isLoading } = useListBugs(pid, filters, {
+    query: { queryKey: getListBugsQueryKey(pid, filters), enabled: !!pid },
+  });
+  const { data: assignments = [] } = useListProjectUsers(pid, {
+    query: { queryKey: getListProjectUsersQueryKey(pid), enabled: !!pid },
+  });
   const { data: allUsers } = useListUsers();
 
   const assignBug = useAssignBug();
@@ -82,7 +91,10 @@ export default function BugList() {
     assignments?.some(a => a.userId === u.id && (a.role === "DEVELOPER" || a.role === "TEST_LEAD"))
   ) || [];
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["bugs"] });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: [`/api/projects/${pid}/bugs`] });
+    queryClient.invalidateQueries({ queryKey: [`/api/projects/${pid}`] });
+  };
 
   const openModal = (modal: string, bugId: number) => {
     setActiveModal(modal);

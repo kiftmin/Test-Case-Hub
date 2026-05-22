@@ -2,6 +2,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Check, X, Paperclip, FileIcon } from "lucide-react";
+import { resolveUploadUrl } from "@/lib/upload-url";
 
 export function TestRunResultsView({ data }: { data: any }) {
   if (!data || !data.useCases) return null;
@@ -79,7 +80,7 @@ export function TestRunResultsView({ data }: { data: any }) {
                                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">Reference Files</span>
                                    <div className="flex flex-wrap gap-2">
                                      {step.attachments.map((att: any) => (
-                                       <a key={att.id} href={att.fileUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 px-2 py-1 bg-primary/5 text-primary rounded border border-primary/10 text-[10px] font-medium hover:bg-primary/10 transition-colors">
+                                       <a key={att.id} href={resolveUploadUrl(att.fileUrl)} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 px-2 py-1 bg-primary/5 text-primary rounded border border-primary/10 text-[10px] font-medium hover:bg-primary/10 transition-colors">
                                          <FileIcon className="w-3 h-3" /> {att.fileName}
                                        </a>
                                      ))}
@@ -102,7 +103,7 @@ export function TestRunResultsView({ data }: { data: any }) {
                                         <span className="text-[10px] uppercase font-bold text-muted-foreground block">Evidence</span>
                                         <div className="flex flex-wrap gap-2">
                                           {step.result.attachments.map((att: any) => (
-                                            <a key={att.id} href={att.fileUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 px-2 py-1 bg-primary/5 text-primary rounded border border-primary/10 text-[10px] font-medium hover:bg-primary/10 transition-colors">
+                                            <a key={att.id} href={resolveUploadUrl(att.fileUrl)} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 px-2 py-1 bg-primary/5 text-primary rounded border border-primary/10 text-[10px] font-medium hover:bg-primary/10 transition-colors">
                                               <Paperclip className="w-3 h-3" /> {att.fileName}
                                             </a>
                                           ))}

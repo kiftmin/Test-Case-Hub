@@ -46,21 +46,13 @@ function Countdown({ targetDate, onComplete }: { targetDate: string, onComplete?
 
 export default function TesterDashboard() {
   const [, setLocation] = useLocation();
-  const user = getAuthUser();
+  const user = getAuthUser()!;
   const [searchQuery, setSearchQuery] = useState("");
-
-  if (!user) {
-    setLocation("/tester");
-    return null;
-  }
 
   const { data: projects, isLoading: isLoadingProjects } = useListUserProjects(user.id);
   const { data: testRuns, isLoading: isLoadingRuns, refetch: refetchRuns } = useGetTesterTestRuns(user.id, {
     query: { refetchInterval: 30000, queryKey: getGetTesterTestRunsQueryKey(user.id) }
   });
-
-  console.log("TesterDashboard user.id:", user.id);
-  console.log("TesterDashboard testRuns:", testRuns);
 
   const handleLogout = () => {
     clearAuth();
@@ -164,14 +156,14 @@ export default function TesterDashboard() {
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">{run.myUseCaseCount} use cases assigned</span>
                     {run.myPendingCount === 0 ? (
-                      <Link href={`/tester/${run.projectCode}?testRunId=${run.id}`}>
+                      <Link href={`/tester/run/${run.id}`}>
                         <Button size="sm" variant="secondary" className="h-8">
                           <ClipboardCheck className="w-4 h-4 mr-1.5" />
                           View
                         </Button>
                       </Link>
                     ) : run.isAvailable ? (
-                      <Link href={`/tester/${run.projectCode}?testRunId=${run.id}`}>
+                      <Link href={`/tester/run/${run.id}`}>
                         <Button size="sm" className="h-8">
                           <PlayCircle className="w-4 h-4 mr-1.5" />
                           Start

@@ -50,10 +50,8 @@ router.post("/use-cases/:useCaseId/test-cases", authenticate, async (req, res) =
 
     const body = CreateTestCaseBody.parse(req.body);
 
-    const existing = await db.query.testCasesTable.findMany({
-      where: eq(testCasesTable.useCaseId, useCaseId),
-    });
-    const caseNumber = existing.length + 1;
+    const { nextCaseNumber } = await import("../lib/sequences");
+    const caseNumber = await nextCaseNumber(useCaseId);
 
     const [tc] = await db
       .insert(testCasesTable)

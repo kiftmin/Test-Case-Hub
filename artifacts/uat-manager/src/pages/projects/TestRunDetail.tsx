@@ -137,6 +137,9 @@ export default function TestRunDetail() {
     query: { enabled: !!pId, queryKey: getListProjectUsersQueryKey(pId) }
   });
 
+  const projectRole = assignments.find((a: { userId: number; role: string }) => a.userId === user?.id)?.role;
+  const canManageRun = user?.role === "ADMIN" || projectRole === "TEST_LEAD";
+
   const { data: projectUseCases = [] } = useListUseCases(pId, {
     query: { enabled: !!pId && showAddUC, queryKey: getListUseCasesQueryKey(pId) }
   });
@@ -291,7 +294,7 @@ export default function TestRunDetail() {
         }
         actions={
           <div className="flex gap-2">
-            {run.status === "scheduled" && user?.role !== 'USER' && (
+            {run.status === "scheduled" && canManageRun && (
               <>
                 <Button
                   size="sm"
@@ -319,7 +322,7 @@ export default function TestRunDetail() {
                   {isFetchingDetailed ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
                   Detailed PDF
                 </Button>
-                {user?.role !== 'USER' && (
+                {canManageRun && (
                   <Button size="sm" variant="outline" onClick={() => setShowRerun(true)}>
                     <RotateCcw className="w-4 h-4 mr-2" /> Re-run Failed
                   </Button>
@@ -345,7 +348,7 @@ export default function TestRunDetail() {
                 </TabsList>
               </Tabs>
             </div>
-            {run.status !== "completed" && viewMode === "management" && user?.role !== 'USER' && (
+            {run.status !== "completed" && viewMode === "management" && canManageRun && (
               <Button size="sm" variant="outline" onClick={() => setShowAddUC(true)}>
                 <Plus className="w-4 h-4 mr-2" /> Add Use Case
               </Button>
@@ -378,7 +381,7 @@ export default function TestRunDetail() {
                         <td className="py-3 px-4 font-medium">{uc.useCaseName}</td>
                         <td className="py-3 px-4">
                           <Select
-                            disabled={run.status === "completed" || user?.role === 'USER'}
+                            disabled={run.status === "completed" || !canManageRun}
                             value={uc.assignedTesterId?.toString() || "unassigned"}
                             onValueChange={(val) =>
                               updateUCMutation.mutate({
@@ -402,7 +405,7 @@ export default function TestRunDetail() {
                         </td>
                         <td className="py-3 px-4 text-center">
                           <Switch
-                            disabled={run.status === "completed" || user?.role === 'USER'}
+                            disabled={run.status === "completed" || !canManageRun}
                             checked={uc.freePass}
                             onCheckedChange={(checked) =>
                               updateUCMutation.mutate({ ucId: uc.id, data: { freePass: checked } })
@@ -412,7 +415,7 @@ export default function TestRunDetail() {
                         <td className="py-3 px-4 text-center">
                           <UCStatusBadge status={uc.status} />
                         </td>
-                        {run.status !== "completed" && user?.role !== 'USER' && (
+                        {run.status !== "completed" && canManageRun && (
                           <td className="py-3 px-4 text-right">
                             <Button
                               variant="ghost"

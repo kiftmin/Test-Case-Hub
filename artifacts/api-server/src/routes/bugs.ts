@@ -12,7 +12,7 @@ const AssignBugBody = z.object({
 });
 
 const UpdateBugStatusBody = z.object({
-  status: z.enum(["OPEN", "ASSIGNED", "IN_PROGRESS", "RESOLVED", "FAILED_TO_RESOLVE", "CLOSED", "REOPENED"]),
+  status: z.enum(["OPEN", "ASSIGNED", "IN_PROGRESS", "RESOLVED", "TEST", "FAILED_TO_RESOLVE", "CLOSED", "REOPENED"]),
   reason: z.string().optional(),
 });
 

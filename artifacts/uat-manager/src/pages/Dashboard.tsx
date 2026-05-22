@@ -45,13 +45,13 @@ export default function Dashboard() {
   const updateStatus = useUpdateBugStatus();
   const updateNotes = useUpdateBugNotes();
 
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("__all__");
   const [modalBug, setModalBug] = useState<DeveloperBugItem | null>(null);
   const [modalAction, setModalAction] = useState<string | null>(null);
   const [newStatus, setNewStatus] = useState<UpdateBugStatusBodyStatus | "">("");
   const [notesText, setNotesText] = useState("");
 
-  const filteredBugs = developerBugs?.filter((b) => !statusFilter || b.status === statusFilter) ?? [];
+  const filteredBugs = developerBugs?.filter((b) => statusFilter === "__all__" || b.status === statusFilter) ?? [];
 
   const handleUpdateStatus = async () => {
     if (!modalBug?.id || !newStatus) return;
@@ -164,7 +164,7 @@ export default function Dashboard() {
                   <SelectValue placeholder="All statuses" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All statuses</SelectItem>
+                  <SelectItem value="__all__">All statuses</SelectItem>
                   <SelectItem value="OPEN">OPEN</SelectItem>
                   <SelectItem value="ASSIGNED">ASSIGNED</SelectItem>
                   <SelectItem value="RESOLVED">RESOLVED</SelectItem>

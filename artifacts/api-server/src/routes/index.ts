@@ -15,10 +15,13 @@ import testRunsRouter from "./test-runs";
 import defectsRouter from "./defects";
 import bugsRouter from "./bugs";
 import teamDiscussionsRouter from "./team-discussions";
+import fileDownloadsRouter from "./file-downloads";
 import { authenticate } from "../middlewares/auth";
 
 
 const router: IRouter = Router();
+
+router.use(fileDownloadsRouter);
 
 router.use(authenticate);
 

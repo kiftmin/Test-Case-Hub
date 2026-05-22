@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { authenticate, authorize, authorizeProjectRole, checkProjectRole } from "../middlewares/auth";
+import { canViewTestRun, canModifyTestRunUseCase } from "../lib/access-control";
 import { db,
   testRunsTable,
   testRunUseCasesTable,
@@ -56,6 +57,85 @@ export async function recalculateTestRunResult(testRunId: number) {
   });
 
   if (ucRows.length === 0) return;
+
+  // Auto-pass use cases that have no executable test cases (empty or all step-less)
+  const ucIds = ucRows.map((uc) => uc.useCaseId);
+  const allTestCases = await db.query.testCasesTable.findMany({
+    where: inArray(testCasesTable.useCaseId, ucIds),
+    columns: { useCaseId: true, id: true },
+  });
+  const allSteps = allTestCases.length > 0
+    ? await db.query.testStepsTable.findMany({
+        where: inArray(testStepsTable.testCaseId, allTestCases.map((tc) => tc.id)),
+        columns: { testCaseId: true },
+      })
+    : [];
+  const stepCountByTcId = new Map<number, number>();
+  for (const step of allSteps) {
+    stepCountByTcId.set(step.testCaseId, (stepCountByTcId.get(step.testCaseId) ?? 0) + 1);
+  }
+
+  if (ucIds.length > 0) {
+    for (const uc of ucRows) {
+      if (uc.status === "passed_by_agreement") continue;
+      const tcs = allTestCases.filter((tc) => tc.useCaseId === uc.useCaseId);
+      const hasExecutableTest = tcs.some((tc) => (stepCountByTcId.get(tc.id) ?? 0) > 0);
+      if (!hasExecutableTest) {
+        // No executable steps — auto-pass
+        if (uc.status !== "passed") {
+          await db
+            .update(testRunUseCasesTable)
+            .set({ status: "passed" })
+            .where(eq(testRunUseCasesTable.id, uc.id));
+          uc.status = "passed";
+        }
+      } else {
+        // Re-sync status from test case executions (handles stale data from old sync logic)
+        const execTestCases = tcs.filter((tc) => (stepCountByTcId.get(tc.id) ?? 0) > 0);
+        const execIds = execTestCases.map((tc) => tc.id);
+        const executions = await db.query.executionsTable.findMany({
+          where: and(
+            inArray(executionsTable.testCaseId, execIds),
+            eq(executionsTable.testRunId, testRunId)
+          ),
+        });
+        const execByTcId = new Map<number, typeof executionsTable.$inferSelect>();
+        for (const exec of executions) {
+          if (!execByTcId.has(exec.testCaseId)) {
+            execByTcId.set(exec.testCaseId, exec);
+          }
+        }
+
+        let allPassed = true;
+        let anyFailed = false;
+        let anyStarted = false;
+
+        for (const tc of execTestCases) {
+          const exec = execByTcId.get(tc.id);
+          if (!exec) {
+            allPassed = false;
+          } else {
+            anyStarted = true;
+            if (exec.status === "failed") anyFailed = true;
+            if (exec.status !== "completed") allPassed = false;
+          }
+        }
+
+        let newStatus: "pending" | "in_progress" | "passed" | "failed" = "pending";
+        if (anyFailed) newStatus = "failed";
+        else if (allPassed) newStatus = "passed";
+        else if (anyStarted) newStatus = "in_progress";
+
+        if (newStatus !== uc.status) {
+          await db
+            .update(testRunUseCasesTable)
+            .set({ status: newStatus })
+            .where(eq(testRunUseCasesTable.id, uc.id));
+          uc.status = newStatus;
+        }
+      }
+    }
+  }
 
   const finishedStatuses = ["passed", "failed", "passed_by_agreement"];
   const allExecuted = ucRows.every((uc) => finishedStatuses.includes(uc.status));
@@ -218,6 +298,17 @@ router.post("/projects/:projectId/test-runs", authenticate, authorizeProjectRole
       return res.status(422).json({ error: "Project has no use cases to include in the test run" });
     }
 
+    const projectUcIds = new Set(
+      (
+        await db.query.useCasesTable.findMany({
+          where: eq(useCasesTable.projectId, projectId),
+        })
+      ).map((u) => u.id),
+    );
+    if (!ucIds.every((id) => projectUcIds.has(id))) {
+      return res.status(400).json({ error: "One or more use cases do not belong to this project" });
+    }
+
     // Create the run
     const [run] = await db
       .insert(testRunsTable)
@@ -281,6 +372,9 @@ router.get("/test-runs/:testRunId", authenticate, async (req, res) => {
         if (!assignment) return res.status(403).json({ error: "You are not assigned to any use case in this test run" });
       }
     }
+
+    // Auto-recalculate on view to fix stuck statuses from empty/step-less test cases
+    await recalculateTestRunResult(testRunId);
 
     const detail = await buildTestRunDetail(testRunId);
     if (!detail) return res.status(404).json({ error: "Test run not found" });
@@ -351,14 +445,12 @@ router.patch("/test-runs/:testRunId/use-cases/:testRunUseCaseId", authenticate, 
 
     const body = UpdateTestRunUseCaseBody.parse(req.body);
 
-    const updateData: Partial<typeof existing> = {};
-
-    // Authorization check for USER role
-    if (req.user?.role === 'USER') {
-      if (body.freePass !== undefined || body.assignedTesterId !== undefined) {
-        return res.status(403).json({ error: "Testers cannot modify assignments or free pass status" });
-      }
+    const authz = await canModifyTestRunUseCase(req, testRunId, testRunUseCaseId, body);
+    if (!authz.allowed) {
+      return res.status(403).json({ error: authz.error ?? "Insufficient permissions" });
     }
+
+    const updateData: Partial<typeof existing> = {};
 
     if (body.freePass !== undefined) updateData.freePass = body.freePass;
     if (body.status !== undefined) updateData.status = body.status;
@@ -485,6 +577,10 @@ router.post("/test-runs/:testRunId/use-cases/:useCaseId/sync", authenticate, asy
 
     if (!runUc) return res.status(404).json({ error: "Test run use case not found" });
 
+    if (!(await canViewTestRun(req, testRunId))) {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
+
     // Don't override manual passed_by_agreement via sync
     if (runUc.status === "passed_by_agreement") {
       const detail = await buildTestRunDetail(testRunId);
@@ -496,14 +592,36 @@ router.post("/test-runs/:testRunId/use-cases/:useCaseId/sync", authenticate, asy
       where: eq(testCasesTable.useCaseId, useCaseId)
     });
 
-    if (testCases.length === 0) return res.json(runUc);
+    if (testCases.length === 0) {
+      if (runUc.status !== "passed_by_agreement") {
+        await db.update(testRunUseCasesTable)
+          .set({ status: "passed" })
+          .where(eq(testRunUseCasesTable.id, runUc.id));
+        await recalculateTestRunResult(testRunId);
+      }
+      const detail = await buildTestRunDetail(testRunId);
+      return res.json(detail);
+    }
 
     // Get the latest execution for each test case in this test run
     let allPassed = true;
     let anyFailed = false;
     let anyStarted = false;
 
+    // Pre-fetch step counts to detect step-less test cases (auto-pass)
+    const allSteps = await db.query.testStepsTable.findMany({
+      where: inArray(testStepsTable.testCaseId, testCases.map((tc) => tc.id)),
+      columns: { testCaseId: true },
+    });
+    const stepCountByTcId = new Map<number, number>();
+    for (const step of allSteps) {
+      stepCountByTcId.set(step.testCaseId, (stepCountByTcId.get(step.testCaseId) ?? 0) + 1);
+    }
+
     for (const tc of testCases) {
+      // Test cases with no steps have nothing to execute — auto-pass
+      if ((stepCountByTcId.get(tc.id) ?? 0) === 0) continue;
+
       const exec = await db.query.executionsTable.findFirst({
         where: and(
           eq(executionsTable.testCaseId, tc.id),
@@ -642,10 +760,14 @@ router.post("/test-runs/:testRunId/re-run", authenticate, async (req, res) => {
  * GET /dashboard/tester/:userId/test-runs
  * Returns test runs assigned to a specific tester, with countdown info.
  */
-router.get("/dashboard/tester/:userId/test-runs", async (req, res) => {
+router.get("/dashboard/tester/:userId/test-runs", authenticate, async (req, res) => {
   try {
-    const userId = parseInt(req.params.userId);
+    const userId = parseInt(req.params.userId as string);
     if (isNaN(userId)) return res.status(400).json({ error: "Invalid user ID" });
+
+    if (req.user!.role !== "ADMIN" && req.user!.userId !== userId) {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
 
     // Find all test run use case entries assigned to this tester
     const allAssignments = await db.select().from(testRunUseCasesTable);
@@ -756,10 +878,14 @@ router.get("/projects/:projectId/test-runs/analytics", authenticate, async (req,
  * GET /test-runs/:testRunId/full-report
  * Returns a complete dataset for generating a detailed report.
  */
-router.get("/test-runs/:testRunId/full-report", async (req, res) => {
+router.get("/test-runs/:testRunId/full-report", authenticate, async (req, res) => {
   try {
-    const testRunId = parseInt(req.params.testRunId);
+    const testRunId = parseInt(req.params.testRunId as string);
     if (isNaN(testRunId)) return res.status(400).json({ error: "Invalid test run ID" });
+
+    if (!(await canViewTestRun(req, testRunId))) {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
 
     const runDetail = await buildTestRunDetail(testRunId);
     if (!runDetail) return res.status(404).json({ error: "Test run not found" });

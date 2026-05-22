@@ -43,7 +43,7 @@ async function logStatusChange(
 
 function canAccessDefect(projectRole: string | undefined): boolean {
   if (!projectRole) return false;
-  return ["TEST_LEAD", "TEST_AUTHOR", "BUSINESS_OWNER", "ADMIN"].includes(projectRole);
+  return ["TEST_LEAD", "TEST_AUTHOR", "BUSINESS_OWNER"].includes(projectRole);
 }
 
 router.get("/test-runs/:testRunId/defects", authenticate, async (req, res) => {
@@ -112,7 +112,8 @@ router.get("/defects/:defectId", authenticate, async (req, res) => {
       where: eq(testRunsTable.id, defect.testRunId),
     });
 
-    if (req.user!.role !== "ADMIN" && run) {
+    if (req.user!.role !== "ADMIN") {
+      if (!run) return res.status(404).json({ error: "Test run not found" });
       const assignment = await db.query.projectAssignmentsTable.findFirst({
         where: and(
           eq(projectAssignmentsTable.projectId, run.projectId),
@@ -157,15 +158,13 @@ router.patch("/defects/:defectId/flag-bug", authenticate, async (req, res) => {
     const allowed = await checkProjectRole(req, run.projectId, ["TEST_LEAD"]);
     if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
 
-    const existingBugs = await db.query.bugsTable.findMany({
-      where: eq(bugsTable.projectId, run.projectId),
-    });
-    const maxBugNumber = existingBugs.reduce((max, b) => Math.max(max, b.bugNumber), 0);
+    const { nextBugNumber } = await import("../lib/sequences");
+    const bugNumber = await nextBugNumber(run.projectId);
 
     const [bug] = await db.insert(bugsTable).values({
       projectId: run.projectId,
       defectId,
-      bugNumber: maxBugNumber + 1,
+      bugNumber,
       status: "OPEN",
     }).returning();
 
@@ -201,10 +200,9 @@ router.patch("/defects/:defectId/flag-retest", authenticate, async (req, res) =>
     const run = await db.query.testRunsTable.findFirst({
       where: eq(testRunsTable.id, defect.testRunId),
     });
-    if (run) {
-      const allowed = await checkProjectRole(req, run.projectId, ["TEST_LEAD"]);
-      if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
-    }
+    if (!run) return res.status(404).json({ error: "Test run not found" });
+    const allowed = await checkProjectRole(req, run.projectId, ["TEST_LEAD"]);
+    if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
 
     const oldStatus = defect.status;
     await db.update(defectsTable)
@@ -238,10 +236,9 @@ router.patch("/defects/:defectId/flag-accepted-by-business", authenticate, async
     const run = await db.query.testRunsTable.findFirst({
       where: eq(testRunsTable.id, defect.testRunId),
     });
-    if (run) {
-      const allowed = await checkProjectRole(req, run.projectId, ["TEST_LEAD"]);
-      if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
-    }
+    if (!run) return res.status(404).json({ error: "Test run not found" });
+    const allowed = await checkProjectRole(req, run.projectId, ["TEST_LEAD"]);
+    if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
 
     const oldStatus = defect.status;
     await db.update(defectsTable)
@@ -388,7 +385,8 @@ router.post("/defects/:defectId/notes", authenticate, async (req, res) => {
       where: eq(testRunsTable.id, defect.testRunId),
     });
 
-    if (req.user!.role !== "ADMIN" && run) {
+    if (req.user!.role !== "ADMIN") {
+      if (!run) return res.status(404).json({ error: "Test run not found" });
       const assignment = await db.query.projectAssignmentsTable.findFirst({
         where: and(
           eq(projectAssignmentsTable.projectId, run.projectId),

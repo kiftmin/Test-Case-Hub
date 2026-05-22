@@ -2568,7 +2568,7 @@ components:
       properties:
         status:
           type: string
-          enum: [OPEN, ASSIGNED, RESOLVED, TEST, FAILED_TO_RESOLVE, CLOSED]
+          enum: [OPEN, ASSIGNED, IN_PROGRESS, RESOLVED, TEST, FAILED_TO_RESOLVE, CLOSED, REOPENED]
         reason:
           type: string
       required: [status]

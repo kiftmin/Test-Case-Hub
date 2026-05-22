@@ -51,6 +51,9 @@ export default function ProjectUsers() {
   const { data: assignments, isLoading: isAssignmentsLoading, refetch: refetchAssignments } = useListProjectUsers(id);
   const { data: allUsers, isLoading: isUsersLoading } = useListUsers();
 
+  const projectRole = assignments?.find((a) => a.userId === currentUser?.id)?.role;
+  const canManageUsers = currentUser?.role === "ADMIN" || projectRole === "TEST_LEAD";
+
   const assignMutation = useAssignUserToProject();
   const removeMutation = useRemoveUserFromProject();
 
@@ -180,7 +183,7 @@ export default function ProjectUsers() {
           </CardContent>
         </Card>
 
-        {!isSignedOff && (
+        {!isSignedOff && canManageUsers && (
           <Card className="h-fit">
             <CardHeader>
               <CardTitle className="text-lg">Add User</CardTitle>

@@ -64,11 +64,16 @@ describe("Test run route helpers", () => {
         { status: "failed", freePass: true },
       ]);
 
+      const where = vi.fn().mockResolvedValue(undefined);
+      const set = vi.fn().mockReturnValue({ where });
+      (db.update as any).mockReturnValue({ set });
+
       const { recalculateTestRunResult } = await import("../routes/test-runs");
 
       await recalculateTestRunResult(1);
 
       expect(db.update).toHaveBeenCalledWith(testRunsTable);
+      expect(set).toHaveBeenCalledWith({ passed: true, status: "completed" });
     });
 
     it("does not calculate if not all use cases are executed", async () => {

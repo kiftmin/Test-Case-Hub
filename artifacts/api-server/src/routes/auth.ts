@@ -8,7 +8,13 @@ import { z } from "zod";
 import { authenticate, authorize } from "../middlewares/auth";
 
 const router = Router();
-const JWT_SECRET = process.env.SESSION_SECRET || "fallback_secret";
+const JWT_SECRET =
+  process.env.SESSION_SECRET ||
+  (process.env.NODE_ENV === "production"
+    ? (() => {
+        throw new Error("SESSION_SECRET must be set in production");
+      })()
+    : "dev-only-fallback-secret");
 
 const RegisterBody = z.object({
   username: z.string().min(1),

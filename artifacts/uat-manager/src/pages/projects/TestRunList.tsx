@@ -87,8 +87,13 @@ function CreateTestRunDialog({
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const defaultDateTime = () => {
+    const d = new Date(Date.now() + 60 * 60 * 1000);
+    return d.toISOString().slice(0, 16);
+  };
+
   const [name, setName] = useState("");
-  const [scheduledAt, setScheduledAt] = useState("");
+  const [scheduledAt, setScheduledAt] = useState(defaultDateTime);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -112,12 +117,6 @@ function CreateTestRunDialog({
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
-
-  // Default to 1 hour from now for UX convenience
-  const defaultDateTime = () => {
-    const d = new Date(Date.now() + 60 * 60 * 1000);
-    return d.toISOString().slice(0, 16);
-  };
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -143,7 +142,7 @@ function CreateTestRunDialog({
             <Input
               id="tr-sched"
               type="datetime-local"
-              defaultValue={defaultDateTime()}
+              value={scheduledAt}
               onChange={(e) => setScheduledAt(e.target.value)}
             />
           </div>

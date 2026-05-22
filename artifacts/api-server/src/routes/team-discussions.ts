@@ -7,7 +7,13 @@ import { authenticate, checkProjectRole } from "../middlewares/auth";
 const router = Router();
 
 const CreateDiscussionBody = z.object({
-  meetingType: z.enum(["defect_review", "post_mortem"]),
+  meetingType: z
+    .enum(["defect_review", "post_mortem", "Defect Review", "Post-Mortem"])
+    .transform((v) => {
+      if (v === "Defect Review") return "defect_review";
+      if (v === "Post-Mortem") return "post_mortem";
+      return v;
+    }),
   participantIds: z.array(z.number()),
 });
 
@@ -49,6 +55,14 @@ router.post("/test-runs/:testRunId/discussions", authenticate, async (req, res) 
 
     const allowed = await checkProjectRole(req, run.projectId, ["TEST_LEAD"]);
     if (!allowed) return res.status(403).json({ error: "Insufficient permissions" });
+
+    const projectMembers = await db.query.projectAssignmentsTable.findMany({
+      where: eq(projectAssignmentsTable.projectId, run.projectId),
+    });
+    const memberIds = new Set(projectMembers.map((m) => m.userId));
+    if (!body.participantIds.every((id) => memberIds.has(id))) {
+      return res.status(400).json({ error: "All participants must be assigned to this project" });
+    }
 
     const [discussion] = await db.insert(teamDiscussionsTable).values({
       projectId: run.projectId,
@@ -243,6 +257,9 @@ router.get("/discussions/:discussionId/defects/:defectId", authenticate, async (
       where: eq(defectsTable.id, defectId),
     });
     if (!defect) return res.status(404).json({ error: "Defect not found" });
+    if (defect.testRunId !== discussion.testRunId) {
+      return res.status(404).json({ error: "Defect not found in this discussion" });
+    }
 
     const testCase = await db.query.testCasesTable.findFirst({
       where: eq(testCasesTable.id, defect.testCaseId),

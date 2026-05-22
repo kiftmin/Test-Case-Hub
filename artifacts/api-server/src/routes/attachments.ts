@@ -3,6 +3,7 @@ import { db, attachmentsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { CreateAttachmentBody } from "@workspace/api-zod";
 import { authenticate } from "../middlewares/auth";
+import { canAccessAttachmentEntity } from "../lib/access-control";
 
 const router = Router();
 
@@ -12,6 +13,10 @@ router.get("/attachments/:entityType/:entityId", authenticate, async (req, res) 
     const entityId = parseInt(req.params.entityId as string);
     if (isNaN(entityId)) return res.status(400).json({ error: "Invalid entity ID" });
 
+    if (!(await canAccessAttachmentEntity(req, entityType, entityId))) {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
+
     const attachments = await db.query.attachmentsTable.findMany({
       where: and(
         eq(attachmentsTable.entityType, entityType),
@@ -20,16 +25,20 @@ router.get("/attachments/:entityType/:entityId", authenticate, async (req, res) 
       orderBy: desc(attachmentsTable.createdAt),
     });
 
-    res.json(attachments.map(a => ({ ...a, createdAt: a.createdAt.toISOString() })));
+    return res.json(attachments.map((a) => ({ ...a, createdAt: a.createdAt.toISOString() })));
   } catch (err) {
     req.log.error({ err }, "Failed to list attachments");
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
-router.post("/attachments", async (req, res) => {
+router.post("/attachments", authenticate, async (req, res) => {
   try {
     const body = CreateAttachmentBody.parse(req.body);
+
+    if (!(await canAccessAttachmentEntity(req, body.entityType, body.entityId))) {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
 
     const [attachment] = await db
       .insert(attachmentsTable)
@@ -43,23 +52,32 @@ router.post("/attachments", async (req, res) => {
       })
       .returning();
 
-    res.status(201).json({ ...attachment, createdAt: attachment.createdAt.toISOString() });
+    return res.status(201).json({ ...attachment, createdAt: attachment.createdAt.toISOString() });
   } catch (err) {
     req.log.error({ err }, "Failed to create attachment");
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
-router.delete("/attachments/:attachmentId", async (req, res) => {
+router.delete("/attachments/:attachmentId", authenticate, async (req, res) => {
   try {
-    const attachmentId = parseInt(req.params.attachmentId);
+    const attachmentId = parseInt(req.params.attachmentId as string);
     if (isNaN(attachmentId)) return res.status(400).json({ error: "Invalid attachment ID" });
 
+    const existing = await db.query.attachmentsTable.findFirst({
+      where: eq(attachmentsTable.id, attachmentId),
+    });
+    if (!existing) return res.status(404).json({ error: "Attachment not found" });
+
+    if (!(await canAccessAttachmentEntity(req, existing.entityType, existing.entityId))) {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
+
     await db.delete(attachmentsTable).where(eq(attachmentsTable.id, attachmentId));
-    res.status(204).send();
+    return res.status(204).send();
   } catch (err) {
     req.log.error({ err }, "Failed to delete attachment");
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 

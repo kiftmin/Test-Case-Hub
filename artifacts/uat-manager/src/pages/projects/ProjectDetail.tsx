@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useParams } from "wouter";
-import { getAuthUser } from "@/lib/auth";
+import { getAuthUser, getAuthToken } from "@/lib/auth";
 import {
   useGetProject,
   getGetProjectQueryKey,
@@ -62,21 +62,38 @@ export default function ProjectDetail() {
   const canEditTestPlan = isAdmin || projectRole === "TEST_LEAD" || projectRole === "TEST_AUTHOR";
   const isSignedOff = (project as any)?.isSignedOff === 1;
 
-  const signOffData = (project as any)?.signOffData ? JSON.parse((project as any).signOffData) : null;
-  const lastCompletedRunId = signOffData?.lastTestRunId || testRuns.find(r => r.status === 'completed')?.id;
+  type SignOffRecord = {
+    lastTestRunId?: number;
+    testLead?: { signedAt?: string };
+    businessOwner?: { signedAt?: string };
+  };
+  let signOffData: SignOffRecord | null = null;
+  if ((project as any)?.signOffData) {
+    try {
+      signOffData = JSON.parse((project as any).signOffData) as SignOffRecord;
+    } catch {
+      signOffData = null;
+    }
+  }
+  const lastCompletedRunId =
+    (typeof signOffData?.lastTestRunId === "number" ? signOffData.lastTestRunId : undefined) ??
+    testRuns.find((r) => r.status === "completed")?.id;
 
-  const { data: lastRunReport } = useGetTestRunFullReport(lastCompletedRunId!, {
+  const { data: lastRunReport } = useGetTestRunFullReport(lastCompletedRunId ?? 0, {
     query: {
       enabled: !!lastCompletedRunId && (showSignOff || showCertificate || !!(project as any)?.isSignedOff),
-      queryKey: getGetTestRunFullReportQueryKey(lastCompletedRunId!)
-    }
+      queryKey: getGetTestRunFullReportQueryKey(lastCompletedRunId ?? 0),
+    },
   });
 
   const signOffMutation = useMutation({
     mutationFn: async ({ role, note }: { role: string; note?: string }) => {
       const res = await fetch(`/api/projects/${id}/sign-off`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
         body: JSON.stringify({ role, note }),
       });
       if (!res.ok) {
@@ -287,7 +304,7 @@ export default function ProjectDetail() {
           open={showSignOff}
           onOpenChange={setShowSignOff}
           project={project}
-          userRole={projectRole}
+          userRole={projectRole ?? null}
           signOffData={signOffData}
           onSignOff={(role, note) => signOffMutation.mutateAsync({ role, note })}
           isPending={signOffMutation.isPending}

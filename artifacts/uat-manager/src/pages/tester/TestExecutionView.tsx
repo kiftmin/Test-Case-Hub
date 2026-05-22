@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Check, X, AlertCircle, Save, LogOut, Paperclip, FileIcon, ClipboardCheck, Smartphone, Bug } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAuthUser, clearAuth } from "@/lib/auth";
+import { resolveUploadUrl } from "@/lib/upload-url";
 
 import { EvidenceUpload } from "@/components/tester/EvidenceUpload";
 import { MobileShare } from "@/components/tester/MobileShare";
@@ -45,7 +46,9 @@ function TestCaseExecutor({ testCase, projectCode, user, testRunId, onComplete }
   const [createdDefectId, setCreatedDefectId] = useState<number | null>(null);
 
   // Find the active (in_progress) execution for this test run
-  const activeExecution = executions?.find(e => e.status === 'in_progress' && e.testerName === user.name && (!testRunId || e.testRunId === testRunId));
+  const activeExecution = executions?.find(
+    (e) => e.status === "in_progress" && (!testRunId || e.testRunId === testRunId),
+  );
   const lastCompletedExecution = executions?.find(e => e.status !== 'in_progress' && (!testRunId || e.testRunId === testRunId));
 
   // Initialize step results when an execution is active
@@ -83,24 +86,22 @@ function TestCaseExecutor({ testCase, projectCode, user, testRunId, onComplete }
   };
 
 
-  const handleUpdateStep = async (stepId: number, data: any) => {
+  const handleUpdateStep = async (stepId: number, data: Partial<{ actualResult: string; comments: string; passed: boolean | null }>) => {
     if (!activeExecutionId) return;
-    
-    setStepResults(prev => ({
-      ...prev,
-      [stepId]: { ...prev[stepId], ...data }
-    }));
+
+    const merged = { ...stepResults[stepId], ...data };
+    setStepResults((prev) => ({ ...prev, [stepId]: { ...prev[stepId], ...data } }));
 
     await updateStepResult.mutateAsync({
       executionId: activeExecutionId,
       stepId,
       data: {
-        actualResult: data.actualResult ?? stepResults[stepId]?.actualResult,
-        comments: data.comments ?? stepResults[stepId]?.comments,
-        passed: data.passed ?? stepResults[stepId]?.passed,
-      }
+        actualResult: merged.actualResult,
+        comments: merged.comments,
+        passed: merged.passed,
+      },
     });
-    
+
     queryClient.invalidateQueries({ queryKey: getListExecutionsQueryKey(testCase.id) });
   };
 
@@ -287,7 +288,7 @@ function TestCaseExecutor({ testCase, projectCode, user, testRunId, onComplete }
                           {step.attachments.map((file: any) => (
                             <a 
                               key={file.id}
-                              href={file.fileUrl}
+                              href={resolveUploadUrl(file.fileUrl)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="flex items-center gap-1.5 px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100 transition-colors text-xs font-medium"

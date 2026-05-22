@@ -10,6 +10,9 @@ import {
   useBusinessRejectDefect,
   useAddDefectNote,
   useListProjectUsers,
+  getListDefectsQueryKey,
+  getGetTestRunQueryKey,
+  getListProjectUsersQueryKey,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -48,9 +51,15 @@ export default function DefectLog() {
   const currentUser = getAuthUser();
   const queryClient = useQueryClient();
 
-  const { data: defects, isLoading } = useListDefects(tid, { query: { enabled: !!tid } });
-  const { data: testRun } = useGetTestRun(tid, { query: { enabled: !!tid } });
-  const { data: assignments = [] } = useListProjectUsers(pid, { query: { enabled: !!pid } });
+  const { data: defects, isLoading } = useListDefects(tid, {
+    query: { queryKey: getListDefectsQueryKey(tid), enabled: !!tid },
+  });
+  const { data: testRun } = useGetTestRun(tid, {
+    query: { queryKey: getGetTestRunQueryKey(tid), enabled: !!tid },
+  });
+  const { data: assignments = [] } = useListProjectUsers(pid, {
+    query: { queryKey: getListProjectUsersQueryKey(pid), enabled: !!pid },
+  });
 
   const flagBug = useFlagDefectAsBug();
   const flagRetest = useFlagDefectForRetest();
@@ -88,7 +97,10 @@ export default function DefectLog() {
     setActiveDefectId(null);
   };
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["defects"] });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: [`/api/test-runs/${tid}/defects`] });
+    queryClient.invalidateQueries({ queryKey: [`/api/test-runs/${tid}`] });
+  };
 
   const handleFlagBug = async () => {
     if (!activeDefectId) return;

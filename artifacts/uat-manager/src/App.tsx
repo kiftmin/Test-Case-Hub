@@ -1,4 +1,6 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import type { ComponentType } from "react";
+import { useEffect } from "react";
+import { Switch, Route, Router as WouterRouter, useLocation, useParams } from "wouter";
 // Reload trigger
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -13,13 +15,20 @@ import ProjectDetail from "@/pages/projects/ProjectDetail";
 import ProjectStats from "@/pages/projects/ProjectStats";
 import TesterLogin from "@/pages/tester/TesterLogin";
 import TesterDashboard from "@/pages/tester/TesterDashboard";
-import TestExecutionView from "@/pages/tester/TestExecutionView";
+import TesterScenarioSelector from "@/pages/tester/TesterScenarioSelector";
+import TesterCaseSelector from "@/pages/tester/TesterCaseSelector";
+import TesterStepWizard from "@/pages/tester/TesterStepWizard";
 import ProjectUsers from "@/pages/projects/ProjectUsers";
 import TestRunList from "@/pages/projects/TestRunList";
 import TestRunDetail from "@/pages/projects/TestRunDetail";
 import DefectLog from "@/pages/projects/DefectLog";
 import BugList from "@/pages/projects/BugList";
 import UserManagement from "@/pages/Users";
+import { RequireAuth } from "@/components/auth/RequireAuth";
+import { RequireTesterAuth } from "@/components/auth/RequireTesterAuth";
+import { useGetProjectByCode } from "@workspace/api-client-react";
+import { useGetTesterTestRuns } from "@workspace/api-client-react";
+import { getAuthUser } from "@/lib/auth";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,24 +38,79 @@ const queryClient = new QueryClient({
   },
 });
 
+function AdminRoute({ component: Component }: { component: ComponentType }) {
+  return (
+    <RequireAuth loginPath="/tester">
+      <Component />
+    </RequireAuth>
+  );
+}
+
+function AdminOnlyRoute({ component: Component }: { component: ComponentType }) {
+  return (
+    <RequireAuth loginPath="/" roles={["ADMIN"]}>
+      <Component />
+    </RequireAuth>
+  );
+}
+
+function TesterRoute({ component: Component }: { component: ComponentType }) {
+  return (
+    <RequireTesterAuth>
+      <Component />
+    </RequireTesterAuth>
+  );
+}
+
+function LegacyRedirect() {
+  const { projectCode } = useParams();
+  const code = (projectCode || "").toUpperCase();
+  const user = getAuthUser();
+  const [, setLocation] = useLocation();
+  const { data: project } = useGetProjectByCode(code, {
+    query: { enabled: !!code && !!user, queryKey: [`/api/projects/code/${code}`] },
+  });
+  const { data: testRuns } = useGetTesterTestRuns(user?.id ?? 0, {
+    query: { enabled: !!user?.id, queryKey: [`/api/dashboard/tester/${user?.id}/test-runs`] },
+  });
+
+  useEffect(() => {
+    if (project && testRuns) {
+      const match = testRuns.find((r: any) => r.projectCode === code);
+      if (match) {
+        setLocation(`/tester/run/${match.id}`);
+      }
+    }
+  }, [project, testRuns, code, setLocation]);
+
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="animate-pulse text-sm text-muted-foreground">Redirecting...</div>
+    </div>
+  );
+}
+
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/projects" component={ProjectsList} />
-      <Route path="/projects/new" component={ProjectCreate} />
-      <Route path="/projects/:projectId/edit" component={ProjectEdit} />
-      <Route path="/projects/:projectId/stats" component={ProjectStats} />
-      <Route path="/projects/:projectId/users" component={ProjectUsers} />
-      <Route path="/projects/:projectId/test-runs" component={TestRunList} />
-      <Route path="/projects/:projectId/test-runs/:testRunId" component={TestRunDetail} />
-      <Route path="/projects/:projectId/test-runs/:testRunId/defects" component={DefectLog} />
-      <Route path="/projects/:projectId/bugs" component={BugList} />
-      <Route path="/users" component={UserManagement} />
-      <Route path="/projects/:projectId" component={ProjectDetail} />
+      <Route path="/">{() => <AdminRoute component={Dashboard} />}</Route>
+      <Route path="/projects">{() => <AdminRoute component={ProjectsList} />}</Route>
+      <Route path="/projects/new">{() => <AdminOnlyRoute component={ProjectCreate} />}</Route>
+      <Route path="/projects/:projectId/edit">{() => <AdminOnlyRoute component={ProjectEdit} />}</Route>
+      <Route path="/projects/:projectId/stats">{() => <AdminRoute component={ProjectStats} />}</Route>
+      <Route path="/projects/:projectId/users">{() => <AdminRoute component={ProjectUsers} />}</Route>
+      <Route path="/projects/:projectId/test-runs">{() => <AdminRoute component={TestRunList} />}</Route>
+      <Route path="/projects/:projectId/test-runs/:testRunId">{() => <AdminRoute component={TestRunDetail} />}</Route>
+      <Route path="/projects/:projectId/test-runs/:testRunId/defects">{() => <AdminRoute component={DefectLog} />}</Route>
+      <Route path="/projects/:projectId/bugs">{() => <AdminRoute component={BugList} />}</Route>
+      <Route path="/users">{() => <AdminOnlyRoute component={UserManagement} />}</Route>
+      <Route path="/projects/:projectId">{() => <AdminRoute component={ProjectDetail} />}</Route>
       <Route path="/tester" component={TesterLogin} />
-      <Route path="/tester/dashboard" component={TesterDashboard} />
-      <Route path="/tester/:projectCode" component={TestExecutionView} /> 
+      <Route path="/tester/dashboard">{() => <TesterRoute component={TesterDashboard} />}</Route>
+      <Route path="/tester/run/:testRunId/scenario/:scenarioId/case/:testCaseId">{() => <TesterRoute component={TesterStepWizard} />}</Route>
+      <Route path="/tester/run/:testRunId/scenario/:scenarioId">{() => <TesterRoute component={TesterCaseSelector} />}</Route>
+      <Route path="/tester/run/:testRunId">{() => <TesterRoute component={TesterScenarioSelector} />}</Route>
+      <Route path="/tester/:projectCode">{() => <TesterRoute component={LegacyRedirect} />}</Route>
       <Route component={NotFound} />
     </Switch>
   );

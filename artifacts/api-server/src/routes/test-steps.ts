@@ -68,10 +68,8 @@ router.post("/test-cases/:testCaseId/steps", authenticate, async (req, res) => {
 
     const body = CreateTestStepBody.parse(req.body);
 
-    const existing = await db.query.testStepsTable.findMany({
-      where: eq(testStepsTable.testCaseId, testCaseId),
-    });
-    const stepNumber = existing.length + 1;
+    const { nextStepNumber } = await import("../lib/sequences");
+    const stepNumber = await nextStepNumber(testCaseId);
 
     const [step] = await db
       .insert(testStepsTable)
@@ -107,14 +105,12 @@ router.post("/test-cases/:testCaseId/steps/bulk", authenticate, async (req, res)
 
     const body = BulkCreateTestStepsBody.parse(req.body);
 
-    const existing = await db.query.testStepsTable.findMany({
-      where: eq(testStepsTable.testCaseId, testCaseId),
-    });
-    let nextStepNumber = existing.length + 1;
+    const { nextStepNumberBlock } = await import("../lib/sequences");
+    let stepNum = await nextStepNumberBlock(testCaseId, body.steps.length);
 
     const rows = body.steps.map((s: any) => ({
       testCaseId,
-      stepNumber: nextStepNumber++,
+      stepNumber: stepNum++,
       instruction: s.instruction,
       testData: s.testData ?? null,
       expectedResult: s.expectedResult,

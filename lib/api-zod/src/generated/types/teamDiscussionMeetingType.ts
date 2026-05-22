@@ -10,6 +10,6 @@ export type TeamDiscussionMeetingType = typeof TeamDiscussionMeetingType[keyof t
 
 
 export const TeamDiscussionMeetingType = {
-  Defect_Review: 'defect_review',
-  Post_Mortem: 'post_mortem',
+  defect_review: 'defect_review',
+  post_mortem: 'post_mortem',
 } as const;

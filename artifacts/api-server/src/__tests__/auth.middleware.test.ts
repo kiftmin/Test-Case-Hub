@@ -1,5 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import jwt from "jsonwebtoken";
+
+vi.mock("@workspace/db", () => ({
+  db: {
+    query: {
+      usersTable: { findFirst: vi.fn() },
+      projectAssignmentsTable: { findFirst: vi.fn() },
+    },
+  },
+  usersTable: {},
+  projectAssignmentsTable: {},
+}));
+
+import { db } from "@workspace/db";
 import { authenticate, authorize } from "../middlewares/auth";
 
 function mockReq(overrides: Record<string, any> = {}) {
@@ -44,12 +57,12 @@ describe("authenticate middleware", () => {
     expect(next).toHaveBeenCalledOnce();
   });
 
-  it("returns 401 when no authorization header is present", () => {
-    const req = mockReq();
+  it("returns 401 when no authorization header is present", async () => {
+    const req = mockReq({ query: {} });
     const res = mockRes();
     const next = vi.fn();
 
-    authenticate(req, res, next);
+    await authenticate(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({
@@ -58,38 +71,45 @@ describe("authenticate middleware", () => {
     expect(next).not.toHaveBeenCalled();
   });
 
-  it("returns 401 when header does not start with Bearer", () => {
-    const req = mockReq({ headers: { authorization: "Basic abc123" } });
+  it("returns 401 when header does not start with Bearer", async () => {
+    const req = mockReq({ headers: { authorization: "Basic abc123" }, query: {} });
     const res = mockRes();
     const next = vi.fn();
 
-    authenticate(req, res, next);
+    await authenticate(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();
   });
 
-  it("returns 401 when token is invalid", () => {
-    const req = mockReq({ headers: { authorization: "Bearer invalid-token" } });
+  it("returns 401 when token is invalid", async () => {
+    const req = mockReq({ headers: { authorization: "Bearer invalid-token" }, query: {} });
     const res = mockRes();
     const next = vi.fn();
 
-    authenticate(req, res, next);
+    await authenticate(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({ error: "Invalid token" });
     expect(next).not.toHaveBeenCalled();
   });
 
-  it("calls next() and sets req.user when token is valid", () => {
+  it("calls next() and sets req.user when token is valid", async () => {
     const payload = { userId: 1, username: "admin", role: "ADMIN" };
-    const token = jwt.sign(payload, "fallback_secret");
+    const token = jwt.sign(payload, process.env.SESSION_SECRET || "dev-only-fallback-secret");
+
+    (db.query.usersTable.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: 1,
+      username: "admin",
+      role: "ADMIN",
+      isActive: true,
+    });
 
     const req = mockReq({ headers: { authorization: `Bearer ${token}` } });
     const res = mockRes();
     const next = vi.fn();
 
-    authenticate(req, res, next);
+    await authenticate(req, res, next);
 
     expect(next).toHaveBeenCalledOnce();
     expect(req.user).toBeDefined();

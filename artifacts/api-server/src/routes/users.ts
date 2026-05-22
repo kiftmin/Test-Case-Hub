@@ -8,6 +8,11 @@ import { z } from "zod";
 
 const router = Router();
 
+function parseRouteId(param: string | string[] | undefined): number {
+  const raw = Array.isArray(param) ? param[0] : param;
+  return parseInt(raw ?? "", 10);
+}
+
 const UpdateUserBody = z.object({
   name: z.string().min(1).optional(),
   email: z.string().email().optional().nullable(),
@@ -82,7 +87,7 @@ router.post("/users", authenticate, authorize(['ADMIN']), async (req, res) => {
 
 router.put("/users/:userId", authenticate, authorize(['ADMIN']), async (req, res) => {
   try {
-    const userId = parseInt(req.params.userId);
+    const userId = parseRouteId(req.params.userId);
     if (isNaN(userId)) return res.status(400).json({ error: "Invalid user ID" });
 
     const body = UpdateUserBody.parse(req.body);
@@ -120,7 +125,7 @@ router.put("/users/:userId", authenticate, authorize(['ADMIN']), async (req, res
 
 router.put("/users/:userId/suspend", authenticate, authorize(['ADMIN']), async (req, res) => {
   try {
-    const userId = parseInt(req.params.userId);
+    const userId = parseRouteId(req.params.userId);
     if (isNaN(userId)) return res.status(400).json({ error: "Invalid user ID" });
 
     const body = SuspendUserBody.parse(req.body);
@@ -147,7 +152,7 @@ router.put("/users/:userId/suspend", authenticate, authorize(['ADMIN']), async (
 
 router.put("/users/:userId/password", authenticate, authorize(['ADMIN']), async (req, res) => {
   try {
-    const userId = parseInt(req.params.userId);
+    const userId = parseRouteId(req.params.userId);
     if (isNaN(userId)) return res.status(400).json({ error: "Invalid user ID" });
 
     const body = ChangePasswordBody.parse(req.body);
@@ -172,7 +177,7 @@ router.put("/users/:userId/password", authenticate, authorize(['ADMIN']), async 
 
 router.delete("/users/:userId", authenticate, authorize(['ADMIN']), async (req, res) => {
   try {
-    const userId = parseInt(req.params.userId);
+    const userId = parseRouteId(req.params.userId);
     if (isNaN(userId)) return res.status(400).json({ error: "Invalid user ID" });
 
     const existing = await db.query.usersTable.findFirst({

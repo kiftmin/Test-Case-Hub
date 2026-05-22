@@ -1,12 +1,20 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { db, usersTable, projectAssignmentsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 
-const JWT_SECRET = process.env.SESSION_SECRET || "fallback_secret";
+export const JWT_SECRET =
+  process.env.SESSION_SECRET ||
+  (process.env.NODE_ENV === "production"
+    ? (() => {
+        throw new Error("SESSION_SECRET must be set in production");
+      })()
+    : "dev-only-fallback-secret");
 
 export interface AuthUser {
   userId: number;
   username: string;
-  role: 'ADMIN' | 'AUTHOR' | 'USER';
+  role: "ADMIN" | "AUTHOR" | "USER";
 }
 
 export interface AuthRequest extends Request {
@@ -23,22 +31,60 @@ declare global {
 
 const PUBLIC_PATHS = ["/auth/login", "/auth/register", "/health"];
 
-export const authenticate = (req: AuthRequest, res: Response, next: NextFunction) => {
+interface JwtPayload {
+  userId: number;
+  username: string;
+  role: AuthUser["role"];
+}
+
+export function extractBearerOrQueryToken(req: Request): string | null {
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    return authHeader.split(" ")[1];
+  }
+  const q = req.query?.access_token;
+  if (typeof q === "string" && q.length > 0) {
+    return q;
+  }
+  return null;
+}
+
+/** Verify JWT and load current user from DB (active account, fresh role). */
+export async function verifyTokenPayload(token: string): Promise<AuthUser> {
+  const payload = jwt.verify(token, JWT_SECRET) as JwtPayload;
+
+  const user = await db.query.usersTable.findFirst({
+    where: eq(usersTable.id, payload.userId),
+  });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+  if (!user.isActive) {
+    throw new Error("Account suspended");
+  }
+
+  return {
+    userId: user.id,
+    username: user.username,
+    role: user.role as AuthUser["role"],
+  };
+}
+
+export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction) => {
   if (PUBLIC_PATHS.includes(req.path)) {
     return next();
   }
 
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  const token = extractBearerOrQueryToken(req);
+  if (!token) {
     return res.status(401).json({ error: "Missing or invalid authorization header" });
   }
 
-  const token = authHeader.split(" ")[1];
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as AuthUser;
-    req.user = payload;
-    next();
-  } catch (err) {
+    req.user = await verifyTokenPayload(token);
+    return next();
+  } catch {
     return res.status(401).json({ error: "Invalid token" });
   }
 };
@@ -53,15 +99,10 @@ export const authorize = (roles: string[]) => {
       return res.status(403).json({ error: "Insufficient permissions" });
     }
 
-    next();
+    return next();
   };
 };
 
-/**
- * Authorize a user by their project-level role.
- * ADMIN global role always bypasses the check.
- * Usage: router.put("/path", authenticate, authorizeProjectRole(["TEST_LEAD"]), handler)
- */
 export const authorizeProjectRole = (allowedProjectRoles: string[]) => {
   return async (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
@@ -77,13 +118,10 @@ export const authorizeProjectRole = (allowedProjectRoles: string[]) => {
       return res.status(400).json({ error: "Invalid project ID" });
     }
 
-    const { db, projectAssignmentsTable } = await import("@workspace/db");
-    const { eq, and } = await import("drizzle-orm");
-
     const assignment = await db.query.projectAssignmentsTable.findFirst({
       where: and(
         eq(projectAssignmentsTable.projectId, projectId),
-        eq(projectAssignmentsTable.userId, req.user.userId)
+        eq(projectAssignmentsTable.userId, req.user.userId),
       ),
     });
 
@@ -91,29 +129,22 @@ export const authorizeProjectRole = (allowedProjectRoles: string[]) => {
       return res.status(403).json({ error: "Insufficient permissions for this project" });
     }
 
-    next();
+    return next();
   };
 };
 
-/**
- * Inline project-role check for routes without :projectId in the path.
- * Returns true if the user is ADMIN or has one of the allowed project roles.
- */
 export async function checkProjectRole(
   req: AuthRequest,
   projectId: number,
-  allowedProjectRoles: string[]
+  allowedProjectRoles: string[],
 ): Promise<boolean> {
   if (!req.user) return false;
   if (req.user.role === "ADMIN") return true;
 
-  const { db, projectAssignmentsTable } = await import("@workspace/db");
-  const { eq, and } = await import("drizzle-orm");
-
   const assignment = await db.query.projectAssignmentsTable.findFirst({
     where: and(
       eq(projectAssignmentsTable.projectId, projectId),
-      eq(projectAssignmentsTable.userId, req.user.userId)
+      eq(projectAssignmentsTable.userId, req.user.userId),
     ),
   });
 

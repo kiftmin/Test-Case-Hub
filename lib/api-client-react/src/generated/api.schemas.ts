@@ -479,10 +479,12 @@ export type UpdateBugStatusBodyStatus = typeof UpdateBugStatusBodyStatus[keyof t
 export const UpdateBugStatusBodyStatus = {
   OPEN: 'OPEN',
   ASSIGNED: 'ASSIGNED',
+  IN_PROGRESS: 'IN_PROGRESS',
   RESOLVED: 'RESOLVED',
   TEST: 'TEST',
   FAILED_TO_RESOLVE: 'FAILED_TO_RESOLVE',
   CLOSED: 'CLOSED',
+  REOPENED: 'REOPENED',
 } as const;
 
 export interface UpdateBugStatusBody {
@@ -502,8 +504,8 @@ export type TeamDiscussionMeetingType = typeof TeamDiscussionMeetingType[keyof t
 
 
 export const TeamDiscussionMeetingType = {
-  Defect_Review: 'Defect Review',
-  'Post-Mortem': 'Post-Mortem',
+  defect_review: 'defect_review',
+  post_mortem: 'post_mortem',
 } as const;
 
 export interface DiscussionParticipant {
@@ -532,8 +534,8 @@ export type CreateDiscussionBodyMeetingType = typeof CreateDiscussionBodyMeeting
 
 
 export const CreateDiscussionBodyMeetingType = {
-  Defect_Review: 'Defect Review',
-  'Post-Mortem': 'Post-Mortem',
+  defect_review: 'defect_review',
+  post_mortem: 'post_mortem',
 } as const;
 
 export interface CreateDiscussionBody {

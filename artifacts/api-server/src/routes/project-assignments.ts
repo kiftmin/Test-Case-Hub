@@ -3,13 +3,18 @@ import { db, projectAssignmentsTable, usersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { AssignUserToProjectBody } from "@workspace/api-zod";
 import { authenticate, authorizeProjectRole } from "../middlewares/auth";
+import { canAccessProject } from "../lib/access-control";
 
 const router = Router();
 
-router.get("/projects/:projectId/users", async (req, res) => {
+router.get("/projects/:projectId/users", authenticate, async (req, res) => {
   try {
-    const projectId = parseInt(req.params.projectId);
+    const projectId = parseInt(req.params.projectId as string);
     if (isNaN(projectId)) return res.status(400).json({ error: "Invalid project ID" });
+
+    if (!(await canAccessProject(req, projectId))) {
+      return res.status(403).json({ error: "You are not assigned to this project" });
+    }
 
     const assignments = await db.query.projectAssignmentsTable.findMany({
       where: eq(projectAssignmentsTable.projectId, projectId),
@@ -115,10 +120,14 @@ router.delete("/projects/:projectId/users/:userId", authenticate, authorizeProje
   }
 });
 
-router.get("/users/:userId/projects", async (req, res) => {
+router.get("/users/:userId/projects", authenticate, async (req, res) => {
   try {
-    const userId = parseInt(req.params.userId);
+    const userId = parseInt(req.params.userId as string);
     if (isNaN(userId)) return res.status(400).json({ error: "Invalid user ID" });
+
+    if (req.user!.role !== "ADMIN" && req.user!.userId !== userId) {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
 
     const assignments = await db.query.projectAssignmentsTable.findMany({
       where: eq(projectAssignmentsTable.userId, userId),
