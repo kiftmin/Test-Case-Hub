@@ -79,7 +79,9 @@ export default function TesterScenarioSelector() {
     (uc: any) => uc.assignedTesterUsername === user.username
   ) ?? [];
 
-  const scenarioCards = myRunUseCases.map((ruc: any) => {
+  const scenarioCards = [...myRunUseCases]
+    .sort((a: any, b: any) => (a.useCaseCode || a.useCaseId || 0).toString().localeCompare((b.useCaseCode || b.useCaseId || 0).toString(), undefined, { numeric: true }))
+    .map((ruc: any) => {
     const projectUc = project.useCases?.find((uc: any) => uc.id === ruc.useCaseId);
     const testCases = projectUc?.testCases ?? [];
     const total = testCases.length;

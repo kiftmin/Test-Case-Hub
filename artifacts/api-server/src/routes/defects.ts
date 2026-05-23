@@ -43,7 +43,7 @@ async function logStatusChange(
 
 function canAccessDefect(projectRole: string | undefined): boolean {
   if (!projectRole) return false;
-  return ["TEST_LEAD", "TEST_AUTHOR", "BUSINESS_OWNER"].includes(projectRole);
+  return ["TEST_LEAD", "TEST_AUTHOR", "TESTER", "BUSINESS_OWNER"].includes(projectRole);
 }
 
 router.get("/test-runs/:testRunId/defects", authenticate, async (req, res) => {

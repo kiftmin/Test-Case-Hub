@@ -8,7 +8,7 @@ import {
   useListDefects, getListDefectsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
-import { getAuthUser, clearAuth } from "@/lib/auth";
+import { getAuthUser, getAuthToken, clearAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
@@ -61,7 +61,10 @@ export default function TesterStepWizard() {
   const { data: project, isLoading: isLoadingProject } = useQuery({
     queryKey: ["project-lite", projectId],
     queryFn: async () => {
-      const res = await fetch(`/api/projects/${projectId}?lite=true`);
+      const token = getAuthToken();
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(`/api/projects/${projectId}?lite=true`, { headers });
       if (!res.ok) throw new Error("Failed to fetch project");
       return res.json();
     },
@@ -116,7 +119,7 @@ export default function TesterStepWizard() {
     (e: any) => e.status !== "in_progress" && e.testRunId === trId
   );
   const testCaseInTree = project?.useCases?.flatMap((uc: any) => uc.testCases).find((tc: any) => tc.id === tcId);
-  const stepDefs = testCaseInTree?.steps ?? [];
+  const stepDefs = [...(testCaseInTree?.steps ?? [])].sort((a: any, b: any) => (a.stepNumber ?? 0) - (b.stepNumber ?? 0));
   const steps = stepDefs;
   const testCaseData = testCaseInTree;
 

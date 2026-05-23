@@ -69,7 +69,7 @@ export default function TesterCaseSelector() {
     );
   }
 
-  const testCases = projectUc.testCases ?? [];
+  const testCases = [...(projectUc.testCases ?? [])].sort((a: any, b: any) => (a.caseNumber ?? 0) - (b.caseNumber ?? 0));
   const testCaseRows = testCases.map((tc: any) => {
     const exec = tc.executions?.find(
       (e: any) => e.testRunId === trId && e.status !== "in_progress"
