@@ -243,16 +243,18 @@ export default function TesterStepWizard() {
       status: isPass ? "completed" : "failed",
     };
     if (!isPass) data.notes = defectNotes;
-    await updateExecution.mutateAsync({ executionId: activeExecutionId, data });
-    if (testRun?.useCases?.[0]?.useCaseId) {
-      try {
-        await syncUseCaseStatus.mutateAsync({
-          testRunId: trId,
-          useCaseId: testRun.useCases[0].useCaseId,
-        });
-      } catch { /* swallow */ }
-    }
-    queryClient.invalidateQueries({ queryKey: getListExecutionsQueryKey(tcId) });
+    try {
+      await updateExecution.mutateAsync({ executionId: activeExecutionId, data });
+      if (testRun?.useCases?.[0]?.useCaseId) {
+        try {
+          await syncUseCaseStatus.mutateAsync({
+            testRunId: trId,
+            useCaseId: testRun.useCases[0].useCaseId,
+          });
+        } catch { /* swallow */ }
+      }
+      queryClient.invalidateQueries({ queryKey: getListExecutionsQueryKey(tcId) });
+    } catch { /* API offline — navigate anyway, will sync when back online */ }
     sessionStorage.removeItem(`activeExec_${tcId}`);
     setShowCompletion(false);
     const returnUcId = testRun?.useCases?.[0]?.useCaseId ?? ucid;
