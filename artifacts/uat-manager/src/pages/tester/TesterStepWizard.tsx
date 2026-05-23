@@ -245,6 +245,37 @@ export default function TesterStepWizard() {
     setLocation(`/tester/run/${trId}/scenario/${returnUcId}`);
   }, [activeExecutionId, user, defectNotes, updateExecution, syncUseCaseStatus, trId, tcId, queryClient, setLocation, testRun, ucid]);
 
+  // Debounced draft auto-save when step inputs change
+  const draftStep = steps[currentStepIndex];
+  useEffect(() => {
+    if (!draftStep) return;
+    const input = stepInputs[draftStep.id];
+    if (!input) return;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      saveDraft(draftStep.id, { actualResult: input.actualResult, comments: input.comments });
+    }, 800);
+    return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
+  }, [stepInputs, draftStep?.id]);
+
+  // Restore draft when stepping to a new step
+  useEffect(() => {
+    if (!draftStep) return;
+    const existing = activeExecution?.stepResults?.find((sr: any) => sr.stepId === draftStep.id);
+    if (existing) return;
+    const draft = loadDraft(draftStep.id);
+    if (draft && (draft.actualResult || draft.comments)) {
+      setStepInputs((prev) => ({
+        ...prev,
+        [draftStep.id]: { ...prev[draftStep.id] ?? { actualResult: "", comments: "", passed: null }, actualResult: draft.actualResult, comments: draft.comments },
+      }));
+      setDraftRestoredStepId(draftStep.id);
+      if (draft.comments) {
+        setShowComments((prev) => ({ ...prev, [draftStep.id]: true }));
+      }
+    }
+  }, [draftStep?.id]);
+
   if (!user) return null;
 
   if (isSkipping) {
@@ -390,36 +421,6 @@ export default function TesterStepWizard() {
   const totalSteps = allSteps.length;
   const progressValue = totalSteps > 0 ? ((currentStepIndex + 1) / totalSteps) * 100 : 0;
   const allStepsDone = allSteps.every((s: any) => stepInputs[s.id]?.passed != null);
-
-  // Debounced draft auto-save when step inputs change
-  useEffect(() => {
-    if (!currentStep) return;
-    const input = stepInputs[currentStep.id];
-    if (!input) return;
-    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-    draftTimerRef.current = setTimeout(() => {
-      saveDraft(currentStep.id, { actualResult: input.actualResult, comments: input.comments });
-    }, 800);
-    return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
-  }, [stepInputs, currentStep?.id]);
-
-  // Restore draft when stepping to a new step
-  useEffect(() => {
-    if (!currentStep) return;
-    const existing = activeExecution?.stepResults?.find((sr: any) => sr.stepId === currentStep.id);
-    if (existing) return;
-    const draft = loadDraft(currentStep.id);
-    if (draft && (draft.actualResult || draft.comments)) {
-      setStepInputs((prev) => ({
-        ...prev,
-        [currentStep.id]: { ...prev[currentStep.id] ?? { actualResult: "", comments: "", passed: null }, actualResult: draft.actualResult, comments: draft.comments },
-      }));
-      setDraftRestoredStepId(currentStep.id);
-      if (draft.comments) {
-        setShowComments((prev) => ({ ...prev, [currentStep.id]: true }));
-      }
-    }
-  }, [currentStep?.id]);
 
   const goNext = () => {
     if (currentStepIndex < totalSteps - 1) {
