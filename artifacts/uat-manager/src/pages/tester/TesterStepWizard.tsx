@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Check, X, ChevronLeft, ChevronRight, LogOut, AlertCircle, Loader2, CheckCircle2, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { EvidenceUpload } from "@/components/tester/EvidenceUpload";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +41,7 @@ export default function TesterStepWizard() {
   const [defectNotes, setDefectNotes] = useState("");
   const [showCompletion, setShowCompletion] = useState(false);
   const [showComments, setShowComments] = useState<Record<number, boolean>>({});
+  const [stepResultIdByStepId, setStepResultIdByStepId] = useState<Record<number, number>>({});
   const [isSkipping, setIsSkipping] = useState(false);
 
   const { data: testRun, isLoading: isLoadingRun } = useGetTestRun(trId, {
@@ -79,17 +81,20 @@ export default function TesterStepWizard() {
     if (activeExecution && activeExecution.id !== activeExecutionId) {
       setActiveExecutionId(activeExecution.id);
       const initial: Record<number, any> = {};
+      const srIds: Record<number, number> = {};
       activeExecution.stepResults?.forEach((sr: any) => {
         initial[sr.stepId] = {
           actualResult: sr.actualResult || "",
           comments: sr.comments || "",
           passed: sr.passed,
         };
+        srIds[sr.stepId] = sr.id;
         if (sr.comments) {
           setShowComments((prev) => ({ ...prev, [sr.stepId]: true }));
         }
       });
       setStepInputs(initial);
+      setStepResultIdByStepId(srIds);
     }
   }, [activeExecution?.id]);
 
@@ -152,7 +157,7 @@ export default function TesterStepWizard() {
     const merged = { ...stepInputs[stepId], ...data };
     setStepInputs((prev) => ({ ...prev, [stepId]: { ...prev[stepId], ...data } }));
     try {
-      await updateStepResult.mutateAsync({
+      const result = await updateStepResult.mutateAsync({
         executionId: activeExecutionId,
         stepId,
         data: {
@@ -161,6 +166,9 @@ export default function TesterStepWizard() {
           passed: merged.passed,
         },
       });
+      if (result?.id) {
+        setStepResultIdByStepId((prev) => ({ ...prev, [stepId]: result.id }));
+      }
       queryClient.invalidateQueries({ queryKey: getListExecutionsQueryKey(tcId) });
     } catch { /* swallow */ }
   }, [activeExecutionId, stepInputs, updateStepResult, queryClient, tcId]);
@@ -254,6 +262,15 @@ export default function TesterStepWizard() {
                   {stepDef?.expectedResult && <p className="text-xs text-muted-foreground mt-1">Expected: {stepDef.expectedResult}</p>}
                   {sr.actualResult && <p className="text-xs text-muted-foreground mt-1">Actual: {sr.actualResult}</p>}
                   {sr.comments && <p className="text-xs text-muted-foreground mt-1 italic">{sr.comments}</p>}
+                  {sr.attachments?.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {sr.attachments.filter((a: any) => a.fileType?.startsWith("image/")).map((a: any) => (
+                        <a key={a.id} href={`/api${a.fileUrl}`} target="_blank" rel="noopener noreferrer">
+                          <img src={`/api${a.fileUrl}`} alt={a.fileName} className="w-16 h-16 object-cover rounded-md border border-border" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -459,10 +476,13 @@ export default function TesterStepWizard() {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-muted-foreground uppercase">Photo Evidence</label>
-                <div className="p-4 rounded-lg border-2 border-dashed border-muted-foreground/30 flex flex-col items-center gap-2 text-muted-foreground">
-                  <Camera className="w-6 h-6" />
-                  <span className="text-xs">Camera capture coming in M2</span>
-                </div>
+                <EvidenceUpload
+                  entityId={stepResultIdByStepId[currentStep.id] ?? 0}
+                  entityType="step_result"
+                  attachments={activeExecution?.stepResults?.find((sr: any) => sr.stepId === currentStep.id)?.attachments ?? []}
+                  onUpdate={() => queryClient.invalidateQueries({ queryKey: getListExecutionsQueryKey(tcId) })}
+                  camera
+                />
               </div>
             </div>
           </div>
