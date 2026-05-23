@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useLocation, Link } from "wouter";
 import {
   useGetTestRun, getGetTestRunQueryKey,
@@ -43,6 +43,10 @@ export default function TesterStepWizard() {
   const [showComments, setShowComments] = useState<Record<number, boolean>>({});
   const [stepResultIdByStepId, setStepResultIdByStepId] = useState<Record<number, number>>({});
   const [isSkipping, setIsSkipping] = useState(false);
+  const [draftRestoredStepId, setDraftRestoredStepId] = useState<number | null>(null);
+  const [isOnline, setIsOnline] = useState(true);
+  const [connectionBanner, setConnectionBanner] = useState<"offline" | "restored" | null>(null);
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: testRun, isLoading: isLoadingRun } = useGetTestRun(trId, {
     query: { enabled: !!trId, queryKey: getGetTestRunQueryKey(trId) },
@@ -57,6 +61,37 @@ export default function TesterStepWizard() {
   });
 
   const isLoading = isLoadingRun || isLoadingExecs || isLoadingProject;
+
+  const draftKey = (stepId: number) => `draft_step_${trId}_${tcId}_${stepId}`;
+
+  const saveDraft = useCallback((stepId: number, data: { actualResult?: string; comments?: string }) => {
+    try {
+      sessionStorage.setItem(draftKey(stepId), JSON.stringify({
+        actualResult: data.actualResult ?? "",
+        comments: data.comments ?? "",
+        savedAt: new Date().toISOString(),
+      }));
+    } catch { /* storage full or unavailable */ }
+  }, [trId, tcId]);
+
+  const loadDraft = useCallback((stepId: number): { actualResult: string; comments: string; savedAt: string } | null => {
+    try {
+      const raw = sessionStorage.getItem(draftKey(stepId));
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      const savedAt = new Date(parsed.savedAt);
+      const now = new Date();
+      if (savedAt.toDateString() !== now.toDateString()) {
+        sessionStorage.removeItem(draftKey(stepId));
+        return null;
+      }
+      return parsed;
+    } catch { return null; }
+  }, [trId, tcId]);
+
+  const clearDraft = useCallback((stepId: number) => {
+    try { sessionStorage.removeItem(draftKey(stepId)); } catch { /* ignore */ }
+  }, [trId, tcId]);
 
   const createExecution = useCreateExecution();
   const updateExecution = useUpdateExecution();
@@ -97,6 +132,19 @@ export default function TesterStepWizard() {
       setStepResultIdByStepId(srIds);
     }
   }, [activeExecution?.id]);
+
+  // Connection status listeners
+  useEffect(() => {
+    const handleOffline = () => { setIsOnline(false); setConnectionBanner("offline"); };
+    const handleOnline = () => { setIsOnline(true); setConnectionBanner("restored"); setTimeout(() => setConnectionBanner(null), 3000); };
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+    setIsOnline(navigator.onLine);
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, []);
 
   const casesInScopedUc = project?.useCases?.find((u: any) => u.id === ucid)?.testCases ?? [];
   const nextTcWithSteps = (() => {
@@ -169,9 +217,11 @@ export default function TesterStepWizard() {
       if (result?.id) {
         setStepResultIdByStepId((prev) => ({ ...prev, [stepId]: result.id }));
       }
+      clearDraft(stepId);
+      setDraftRestoredStepId((prev) => prev === stepId ? null : prev);
       queryClient.invalidateQueries({ queryKey: getListExecutionsQueryKey(tcId) });
     } catch { /* swallow */ }
-  }, [activeExecutionId, stepInputs, updateStepResult, queryClient, tcId]);
+  }, [activeExecutionId, stepInputs, updateStepResult, queryClient, tcId, clearDraft]);
 
   const handleCompleteCase = useCallback(async (isPass: boolean) => {
     if (!activeExecutionId) return;
@@ -341,6 +391,36 @@ export default function TesterStepWizard() {
   const progressValue = totalSteps > 0 ? ((currentStepIndex + 1) / totalSteps) * 100 : 0;
   const allStepsDone = allSteps.every((s: any) => stepInputs[s.id]?.passed != null);
 
+  // Debounced draft auto-save when step inputs change
+  useEffect(() => {
+    if (!currentStep) return;
+    const input = stepInputs[currentStep.id];
+    if (!input) return;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      saveDraft(currentStep.id, { actualResult: input.actualResult, comments: input.comments });
+    }, 800);
+    return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
+  }, [stepInputs, currentStep?.id]);
+
+  // Restore draft when stepping to a new step
+  useEffect(() => {
+    if (!currentStep) return;
+    const existing = activeExecution?.stepResults?.find((sr: any) => sr.stepId === currentStep.id);
+    if (existing) return;
+    const draft = loadDraft(currentStep.id);
+    if (draft && (draft.actualResult || draft.comments)) {
+      setStepInputs((prev) => ({
+        ...prev,
+        [currentStep.id]: { ...prev[currentStep.id] ?? { actualResult: "", comments: "", passed: null }, actualResult: draft.actualResult, comments: draft.comments },
+      }));
+      setDraftRestoredStepId(currentStep.id);
+      if (draft.comments) {
+        setShowComments((prev) => ({ ...prev, [currentStep.id]: true }));
+      }
+    }
+  }, [currentStep?.id]);
+
   const goNext = () => {
     if (currentStepIndex < totalSteps - 1) {
       setCurrentStepIndex((i) => i + 1);
@@ -384,6 +464,31 @@ export default function TesterStepWizard() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col max-w-lg mx-auto w-full">
+      {connectionBanner === "offline" && (
+        <div className="sticky top-0 z-20 bg-destructive text-destructive-foreground text-xs font-medium text-center py-2 px-4">
+          No connection — your inputs are being saved as drafts locally.
+        </div>
+      )}
+      {connectionBanner === "restored" && (
+        <div className="sticky top-0 z-20 bg-green-600 text-white text-xs font-medium text-center py-2 px-4 animate-in slide-in-from-top">
+          Connection restored.
+        </div>
+      )}
+      {draftRestoredStepId === currentStep?.id && (
+        <div className="sticky top-0 z-20 bg-amber-500/15 text-amber-700 text-xs font-medium text-center py-2 px-4 border-b border-amber-200 flex items-center justify-center gap-2">
+          Draft restored — last saved at {(() => { const d = loadDraft(currentStep.id); return d ? new Date(d.savedAt).toLocaleTimeString() : ""; })()}
+          <button
+            onClick={() => {
+              clearDraft(currentStep.id);
+              setDraftRestoredStepId(null);
+              setStepInputs((prev) => ({ ...prev, [currentStep.id]: { ...prev[currentStep.id], actualResult: "", comments: "" } }));
+            }}
+            className="underline hover:no-underline font-bold"
+          >
+            Clear draft
+          </button>
+        </div>
+      )}
       <header className="sticky top-0 z-10 bg-card border-b shadow-sm">
         <div className="px-4 h-14 flex items-center justify-between">
           <button onClick={goPrev} disabled={currentStepIndex === 0} className="h-8 w-8 flex items-center justify-center disabled:opacity-30">
