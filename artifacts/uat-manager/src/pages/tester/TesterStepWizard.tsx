@@ -2,13 +2,12 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useLocation, Link } from "wouter";
 import {
   useGetTestRun, getGetTestRunQueryKey,
-  useGetProject, getGetProjectQueryKey,
   useListExecutions, getListExecutionsQueryKey,
   useCreateExecution, useUpdateExecution, useUpdateStepResult,
   useSyncTestRunUseCaseStatus,
   useListDefects, getListDefectsQueryKey,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { getAuthUser, clearAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,7 +35,10 @@ export default function TesterStepWizard() {
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [stepInputs, setStepInputs] = useState<Record<number, { actualResult: string; comments: string; passed: boolean | null }>>({});
-  const [activeExecutionId, setActiveExecutionId] = useState<number | null>(null);
+  const [activeExecutionId, setActiveExecutionId] = useState<number | null>(() => {
+    const saved = sessionStorage.getItem(`activeExec_${tcId}`);
+    return saved ? parseInt(saved, 10) : null;
+  });
   const [showDefectDialog, setShowDefectDialog] = useState(false);
   const [defectNotes, setDefectNotes] = useState("");
   const [showCompletion, setShowCompletion] = useState(false);
@@ -56,8 +58,14 @@ export default function TesterStepWizard() {
   });
 
   const projectId = testRun?.projectId ?? 0;
-  const { data: project, isLoading: isLoadingProject } = useGetProject(projectId, {
-    query: { enabled: !!projectId, queryKey: getGetProjectQueryKey(projectId) },
+  const { data: project, isLoading: isLoadingProject } = useQuery({
+    queryKey: ["project-lite", projectId],
+    queryFn: async () => {
+      const res = await fetch(`/api/projects/${projectId}?lite=true`);
+      if (!res.ok) throw new Error("Failed to fetch project");
+      return res.json();
+    },
+    enabled: !!projectId,
   });
 
   const isLoading = isLoadingRun || isLoadingExecs || isLoadingProject;
@@ -115,6 +123,7 @@ export default function TesterStepWizard() {
   useEffect(() => {
     if (activeExecution && activeExecution.id !== activeExecutionId) {
       setActiveExecutionId(activeExecution.id);
+      sessionStorage.setItem(`activeExec_${tcId}`, activeExecution.id.toString());
       const initial: Record<number, any> = {};
       const srIds: Record<number, number> = {};
       activeExecution.stepResults?.forEach((sr: any) => {
@@ -198,6 +207,7 @@ export default function TesterStepWizard() {
     });
     queryClient.invalidateQueries({ queryKey: getListExecutionsQueryKey(tcId) });
     setActiveExecutionId(res.id);
+    sessionStorage.setItem(`activeExec_${tcId}`, res.id.toString());
   }, [tcId, user, trId, createExecution, queryClient]);
 
   const handleSaveStep = useCallback(async (stepId: number, data: Partial<{ actualResult: string; comments: string; passed: boolean | null }>) => {
@@ -240,6 +250,7 @@ export default function TesterStepWizard() {
       } catch { /* swallow */ }
     }
     queryClient.invalidateQueries({ queryKey: getListExecutionsQueryKey(tcId) });
+    sessionStorage.removeItem(`activeExec_${tcId}`);
     setShowCompletion(false);
     const returnUcId = testRun?.useCases?.[0]?.useCaseId ?? ucid;
     setLocation(`/tester/run/${trId}/scenario/${returnUcId}`);
@@ -411,6 +422,17 @@ export default function TesterStepWizard() {
             {createExecution.isPending ? "Starting..." : "Begin Testing"}
           </Button>
         </div>
+      </div>
+    );
+  }
+
+  // If we have a saved activeExecutionId but no activeExecution found yet (queries still loading),
+  // show a loading state instead of the Ready screen
+  const savedExecId = sessionStorage.getItem(`activeExec_${tcId}`);
+  if (activeExecutionId && !activeExecution && (isLoadingExecs || isLoadingRun || isLoadingProject)) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }

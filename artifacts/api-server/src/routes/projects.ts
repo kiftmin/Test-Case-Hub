@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, projectsTable, useCasesTable, testCasesTable, testStepsTable, executionsTable, attachmentsTable, stepResultsTable, usersTable, projectAssignmentsTable, testRunsTable, testRunUseCasesTable } from "@workspace/db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, inArray } from "drizzle-orm";
 import { CreateProjectBody } from "@workspace/api-zod";
 import { nanoid } from "nanoid";
 import { z } from "zod";
@@ -23,6 +23,55 @@ function generateProjectCode(): string {
 
 function todayStr(): string {
   return new Date().toISOString().split("T")[0];
+}
+
+async function buildProjectTree(projectId: number, userRole?: string) {
+  const project = await db.query.projectsTable.findFirst({
+    where: eq(projectsTable.id, projectId),
+  });
+  if (!project) return null;
+
+  const useCases = await db.query.useCasesTable.findMany({
+    where: eq(useCasesTable.projectId, projectId),
+    orderBy: useCasesTable.id,
+  });
+
+  const ucIds = useCases.map(u => u.id);
+  const testCases = ucIds.length > 0 ? await db.query.testCasesTable.findMany({
+    where: (tc, { inArray }) => inArray(tc.useCaseId, ucIds),
+    orderBy: testCasesTable.caseNumber,
+  }) : [];
+
+  const tcIds = testCases.map(t => t.id);
+  const steps = tcIds.length > 0 ? await db.query.testStepsTable.findMany({
+    where: (ts, { inArray }) => inArray(ts.testCaseId, tcIds),
+    orderBy: testStepsTable.stepNumber,
+  }) : [];
+
+  return {
+    ...project,
+    signOffData: userRole === "USER" ? null : project.signOffData,
+    createdAt: project.createdAt.toISOString(),
+    updatedAt: project.updatedAt.toISOString(),
+    useCases: useCases.map(uc => {
+      const ucTestCases = testCases.filter(tc => tc.useCaseId === uc.id);
+      return {
+        ...uc,
+        createdAt: uc.createdAt.toISOString(),
+        testCases: ucTestCases.map(tc => {
+          const tcSteps = steps.filter(s => s.testCaseId === tc.id);
+          return {
+            ...tc,
+            createdAt: tc.createdAt.toISOString(),
+            steps: tcSteps.map(s => ({
+              ...s,
+              createdAt: s.createdAt.toISOString(),
+            })),
+          };
+        }),
+      };
+    }),
+  };
 }
 
 async function buildProjectDetail(projectId: number, userRole?: string) {
@@ -247,7 +296,10 @@ router.get("/projects/:projectId", authenticate, async (req, res) => {
       if (!assignment) return res.status(403).json({ error: "You are not assigned to this project" });
     }
 
-    const detail = await buildProjectDetail(projectId, req.user?.role);
+    const lite = req.query.lite === "true";
+    const detail = lite
+      ? await buildProjectTree(projectId, req.user?.role)
+      : await buildProjectDetail(projectId, req.user?.role);
     if (!detail) return res.status(404).json({ error: "Project not found" });
 
     res.json(detail);
