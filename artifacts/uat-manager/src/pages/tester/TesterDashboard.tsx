@@ -7,10 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getAuthUser, clearAuth } from "@/lib/auth";
 import { useLocation, Link } from "wouter";
-import { LayoutGrid, ClipboardCheck, ArrowRight, LogOut, Search, Clock, CalendarClock, PlayCircle } from "lucide-react";
+import { LayoutGrid, ClipboardCheck, ArrowRight, LogOut, Search, Clock, CalendarClock, PlayCircle, List, Columns3 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
-import { formatDistanceToNow } from "date-fns";
 
 function Countdown({ targetDate, onComplete }: { targetDate: string, onComplete?: () => void }) {
   const [timeLeft, setTimeLeft] = useState<number>(0);
@@ -48,11 +47,16 @@ export default function TesterDashboard() {
   const [, setLocation] = useLocation();
   const user = getAuthUser()!;
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const { data: projects, isLoading: isLoadingProjects } = useListUserProjects(user.id);
   const { data: testRuns, isLoading: isLoadingRuns, refetch: refetchRuns } = useGetTesterTestRuns(user.id, {
     query: { refetchInterval: 30000, queryKey: getGetTesterTestRunsQueryKey(user.id) }
   });
+
+  const sortedRuns = testRuns
+    ? [...testRuns].sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())
+    : [];
 
   const handleLogout = () => {
     clearAuth();
@@ -68,7 +72,7 @@ export default function TesterDashboard() {
 
   if (user && !user.id) {
     return (
-      <AppLayout>
+    <AppLayout hideDesktopSidebar>
         <div className="p-8 text-center bg-red-50 border border-red-200 rounded-lg">
           <h2 className="text-lg font-bold text-red-600">Session Error</h2>
           <p className="text-red-500">Your session is missing a User ID. Please sign out and sign in again.</p>
@@ -102,39 +106,61 @@ export default function TesterDashboard() {
       </div>
 
       <section className="mb-12">
-        <div className="flex items-center gap-2 mb-4">
-          <CalendarClock className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-semibold">Assigned Test Runs</h2>
-        </div>
-        
-        {isLoadingRuns ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Card className="animate-pulse h-40 bg-muted/20" />
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <CalendarClock className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-semibold">Assigned Test Runs</h2>
           </div>
+          <div className="flex items-center gap-1 border rounded-md p-0.5">
+            <Button
+              variant={viewMode === "grid" ? "default" : "ghost"}
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={() => setViewMode("grid")}
+            >
+              <Columns3 className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={viewMode === "list" ? "default" : "ghost"}
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={() => setViewMode("list")}
+            >
+              <List className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+
+        {isLoadingRuns ? (
+          viewMode === "grid" ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <Card className="animate-pulse h-40 bg-muted/20" />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {[1, 2, 3].map(i => <div key={i} className="h-14 animate-pulse bg-muted/20 rounded-md" />)}
+            </div>
+          )
         ) : !testRuns || testRuns.length === 0 ? (
           <div className="text-center py-10 bg-muted/10 rounded-xl border border-dashed border-border">
             <p className="text-muted-foreground italic">No test runs currently assigned to you.</p>
           </div>
-        ) : (
+        ) : viewMode === "grid" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {testRuns.map((run) => {
-              const project = projects?.find(p => p.projectCode === run.projectCode);
-              const isSignedOff = (project as any)?.isSignedOff === 1;
-              if (isSignedOff) return null;
-
+            {sortedRuns.map((run) => {
               return (
               <Card key={run.id} className={cn(
                 "relative overflow-hidden border-border transition-all",
-                run.isAvailable ? "hover:border-primary/50 hover:shadow-md cursor-pointer" : "opacity-80"
+                run.isAvailable && run.status === "scheduled" ? "hover:border-primary/50 hover:shadow-md cursor-pointer" : "opacity-80"
               )}>
                 <CardHeader className="pb-3">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex gap-1.5 flex-wrap">
-                      <Badge variant="outline" className={cn(
-                        run.isAvailable ? "bg-green-500/10 text-green-600 border-green-500/20" : "bg-amber-500/10 text-amber-600 border-amber-500/20"
-                      )}>
-                        {run.isAvailable ? "Available Now" : "Scheduled"}
-                      </Badge>
+                      {run.status === "scheduled" && run.isAvailable && (
+                        <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+                          Available Now
+                        </Badge>
+                      )}
                       {(() => {
                         if (run.myPendingCount === run.myUseCaseCount) {
                           return <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">NEW</Badge>;
@@ -145,7 +171,7 @@ export default function TesterDashboard() {
                         }
                       })()}
                     </div>
-                    {!run.isAvailable && <Countdown targetDate={run.scheduledAt} onComplete={refetchRuns} />}
+                    {run.status === "scheduled" && !run.isAvailable && <Countdown targetDate={run.scheduledAt} onComplete={refetchRuns} />}
                   </div>
                   <CardTitle className="text-base line-clamp-1">{run.name}</CardTitle>
                   <CardDescription className="text-xs">
@@ -180,6 +206,69 @@ export default function TesterDashboard() {
               </Card>
               );
             })}
+          </div>
+        ) : (
+          <div className="border rounded-md overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 border-b">
+                <tr>
+                  <th className="text-left py-3 px-4 font-medium">Name</th>
+                  <th className="text-left py-3 px-4 font-medium">Project</th>
+                  <th className="text-left py-3 px-4 font-medium">Scheduled</th>
+                  <th className="text-center py-3 px-4 font-medium">Assigned</th>
+                  <th className="text-center py-3 px-4 font-medium">Status</th>
+                  <th className="py-3 px-4"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {sortedRuns.map((run) => {
+                  const project = projects?.find(p => p.projectCode === run.projectCode);
+                  const isSignedOff = (project as any)?.isSignedOff === 1;
+                  if (isSignedOff) return null;
+                  return (
+                    <tr key={run.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="py-3 px-4 font-medium">{run.name}</td>
+                      <td className="py-3 px-4 text-muted-foreground">{run.projectCode}</td>
+                      <td className="py-3 px-4 text-muted-foreground">{new Date(run.scheduledAt).toLocaleString()}</td>
+                      <td className="py-3 px-4 text-center">{run.myUseCaseCount}</td>
+                      <td className="py-3 px-4 text-center">
+                        {(() => {
+                          if (run.myPendingCount === run.myUseCaseCount) {
+                            return <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">NEW</Badge>;
+                          } else if (run.myPendingCount === 0) {
+                            return <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">COMPLETED</Badge>;
+                          } else {
+                            return <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">IN PROGRESS</Badge>;
+                          }
+                        })()}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        {run.myPendingCount === 0 ? (
+                          <Link href={`/tester/run/${run.id}`}>
+                            <Button size="sm" variant="secondary" className="h-8">
+                              <ClipboardCheck className="w-4 h-4 mr-1.5" />
+                              View
+                            </Button>
+                          </Link>
+                        ) : run.isAvailable ? (
+                          <Link href={`/tester/run/${run.id}`}>
+                            <Button size="sm" className="h-8">
+                              <PlayCircle className="w-4 h-4 mr-1.5" />
+                              Start
+                            </Button>
+                          </Link>
+                        ) : (
+                          <Button size="sm" variant="secondary" disabled className="h-8">
+                            <Clock className="w-4 h-4 mr-1.5" />
+                            Locked
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </section>

@@ -154,32 +154,25 @@ export async function recalculateTestRunResult(testRunId: number) {
 
 /** Formats a test run row with its use cases for API responses. */
 async function buildTestRunDetail(testRunId: number) {
-  const run = await db.query.testRunsTable.findFirst({
-    where: eq(testRunsTable.id, testRunId),
-  });
+  const [run, ucRows] = await Promise.all([
+    db.query.testRunsTable.findFirst({ where: eq(testRunsTable.id, testRunId) }),
+    db.query.testRunUseCasesTable.findMany({ where: eq(testRunUseCasesTable.testRunId, testRunId) }),
+  ]);
   if (!run) return null;
 
-  const ucRows = await db.query.testRunUseCasesTable.findMany({
-    where: eq(testRunUseCasesTable.testRunId, testRunId),
-  });
-
   const ucIds = ucRows.map((r) => r.useCaseId);
-  const useCases =
-    ucIds.length > 0
-      ? await db.query.useCasesTable.findMany({
-          where: inArray(useCasesTable.id, ucIds),
-        })
-      : [];
-
   const testerIds = ucRows
     .map((r) => r.assignedTesterId)
     .filter((id): id is number => id !== null);
-  const testers =
+
+  const [useCases, testers] = await Promise.all([
+    ucIds.length > 0
+      ? db.query.useCasesTable.findMany({ where: inArray(useCasesTable.id, ucIds) })
+      : Promise.resolve<typeof useCasesTable.$inferSelect[]>([]),
     testerIds.length > 0
-      ? await db.query.usersTable.findMany({
-          where: inArray(usersTable.id, testerIds),
-        })
-      : [];
+      ? db.query.usersTable.findMany({ where: inArray(usersTable.id, testerIds) })
+      : Promise.resolve<typeof usersTable.$inferSelect[]>([]),
+  ]);
 
   return {
     ...run,
@@ -373,8 +366,10 @@ router.get("/test-runs/:testRunId", authenticate, async (req, res) => {
       }
     }
 
-    // Auto-recalculate on view to fix stuck statuses from empty/step-less test cases
-    await recalculateTestRunResult(testRunId);
+    // Only recalculate if the run is in-progress (data can only change during execution)
+    if (run.status === "in_progress") {
+      await recalculateTestRunResult(testRunId);
+    }
 
     const detail = await buildTestRunDetail(testRunId);
     if (!detail) return res.status(404).json({ error: "Test run not found" });
@@ -769,9 +764,10 @@ router.get("/dashboard/tester/:userId/test-runs", authenticate, async (req, res)
       return res.status(403).json({ error: "Insufficient permissions" });
     }
 
-    // Find all test run use case entries assigned to this tester
-    const allAssignments = await db.select().from(testRunUseCasesTable);
-    const assignments = allAssignments.filter(a => a.assignedTesterId === userId);
+    // Find test run use case entries assigned to this tester
+    const assignments = await db.select().from(testRunUseCasesTable).where(
+      eq(testRunUseCasesTable.assignedTesterId, userId)
+    );
 
     if (assignments.length === 0) return res.json([]);
 
