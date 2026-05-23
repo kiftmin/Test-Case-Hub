@@ -159,7 +159,13 @@ export default function TestRunDetail() {
 
   // ── Mutations ───────────────────────────────────────────────────────────────
 
-  const updateRunMutation = useUpdateTestRun();
+  const updateRunMutation = useUpdateTestRun({
+    mutation: {
+      onSettled: () => {
+        queryClient.invalidateQueries({ queryKey: getGetTestRunQueryKey(trId) });
+      }
+    }
+  });
   
   const updateUCMutation = useMutation({
     mutationFn: async ({ ucId, data }: { ucId: number; data: any }) => {
@@ -202,8 +208,20 @@ export default function TestRunDetail() {
     }
   });
 
-  const addUCMutation = useAddUseCaseToTestRun();
-  const removeUCMutation = useRemoveUseCaseFromTestRun();
+  const addUCMutation = useAddUseCaseToTestRun({
+    mutation: {
+      onSettled: () => {
+        queryClient.invalidateQueries({ queryKey: getGetTestRunQueryKey(trId) });
+      }
+    }
+  });
+  const removeUCMutation = useRemoveUseCaseFromTestRun({
+    mutation: {
+      onSettled: () => {
+        queryClient.invalidateQueries({ queryKey: getGetTestRunQueryKey(trId) });
+      }
+    }
+  });
   const rerunMutation = useRerunTestRun({
     mutation: {
       onSuccess: (newRun) => {
