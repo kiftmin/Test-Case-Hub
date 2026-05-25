@@ -39,7 +39,7 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const { data: summary, isLoading: isSummaryLoading } = useGetDashboardSummary();
   const { data: recentActivity, isLoading: isActivityLoading } = useGetRecentActivity();
-  const { data: users } = useListUsers();
+  const { data: users } = useListUsers({ query: { enabled: currentUser?.role === "ADMIN" } });
   const { data: developerBugs } = useGetDeveloperBugs(currentUser?.id ?? 0, { query: { queryKey: getGetDeveloperBugsQueryKey(currentUser?.id ?? 0), enabled: !!currentUser?.id } });
 
   const updateStatus = useUpdateBugStatus();

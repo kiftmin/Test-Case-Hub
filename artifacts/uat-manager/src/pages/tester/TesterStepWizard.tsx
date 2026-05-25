@@ -8,6 +8,7 @@ import {
   useListDefects, getListDefectsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { getAuthUser, getAuthToken, clearAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -47,7 +48,6 @@ export default function TesterStepWizard() {
   const [isSkipping, setIsSkipping] = useState(false);
   const [draftRestoredStepId, setDraftRestoredStepId] = useState<number | null>(null);
   const [isOnline, setIsOnline] = useState(true);
-  const [connectionBanner, setConnectionBanner] = useState<"offline" | "restored" | null>(null);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: testRun, isLoading: isLoadingRun } = useGetTestRun(trId, {
@@ -145,10 +145,10 @@ export default function TesterStepWizard() {
     }
   }, [activeExecution?.id]);
 
-  // Connection status listeners
+  // Connection status listener
   useEffect(() => {
-    const handleOffline = () => { setIsOnline(false); setConnectionBanner("offline"); };
-    const handleOnline = () => { setIsOnline(true); setConnectionBanner("restored"); setTimeout(() => setConnectionBanner(null), 3000); };
+    const handleOffline = () => setIsOnline(false);
+    const handleOnline = () => setIsOnline(true);
     window.addEventListener("offline", handleOffline);
     window.addEventListener("online", handleOnline);
     setIsOnline(navigator.onLine);
@@ -200,17 +200,21 @@ export default function TesterStepWizard() {
 
   const handleStartExecution = useCallback(async () => {
     if (!tcId || !user) return;
-    const res = await createExecution.mutateAsync({
-      testCaseId: tcId,
-      data: {
-        testerName: user.name,
-        status: "in_progress",
-        testRunId: trId || undefined,
-      },
-    });
-    queryClient.invalidateQueries({ queryKey: getListExecutionsQueryKey(tcId) });
-    setActiveExecutionId(res.id);
-    sessionStorage.setItem(`activeExec_${tcId}`, res.id.toString());
+    try {
+      const res = await createExecution.mutateAsync({
+        testCaseId: tcId,
+        data: {
+          testerName: user.name,
+          status: "in_progress",
+          testRunId: trId || undefined,
+        },
+      });
+      queryClient.invalidateQueries({ queryKey: getListExecutionsQueryKey(tcId) });
+      setActiveExecutionId(res.id);
+      sessionStorage.setItem(`activeExec_${tcId}`, res.id.toString());
+    } catch {
+      toast.error("Cannot start test case while offline. Please check your connection and try again.");
+    }
   }, [tcId, user, trId, createExecution, queryClient]);
 
   const handleSaveStep = useCallback(async (stepId: number, data: Partial<{ actualResult: string; comments: string; passed: boolean | null }>) => {
@@ -423,8 +427,8 @@ export default function TesterStepWizard() {
             <h2 className="text-lg font-bold">Ready to Start</h2>
             <p className="text-sm text-muted-foreground mt-1">You will go through one step at a time.</p>
           </div>
-          <Button onClick={handleStartExecution} className="w-full max-w-xs h-12 text-base" disabled={createExecution.isPending}>
-            {createExecution.isPending ? "Starting..." : "Begin Testing"}
+          <Button onClick={handleStartExecution} className="w-full max-w-xs h-12 text-base" disabled={createExecution.isPending || !isOnline} variant={!isOnline ? "secondary" : "default"}>
+            {createExecution.isPending ? "Starting..." : !isOnline ? "No Connection" : "Begin Testing"}
           </Button>
         </div>
       </div>
@@ -492,16 +496,6 @@ export default function TesterStepWizard() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col max-w-lg mx-auto w-full">
-      {connectionBanner === "offline" && (
-        <div className="sticky top-0 z-20 bg-destructive text-destructive-foreground text-xs font-medium text-center py-2 px-4">
-          No connection — your inputs are being saved as drafts locally.
-        </div>
-      )}
-      {connectionBanner === "restored" && (
-        <div className="sticky top-0 z-20 bg-green-600 text-white text-xs font-medium text-center py-2 px-4 animate-in slide-in-from-top">
-          Connection restored.
-        </div>
-      )}
       {draftRestoredStepId === currentStep?.id && (
         <div className="sticky top-0 z-20 bg-amber-500/15 text-amber-700 text-xs font-medium text-center py-2 px-4 border-b border-amber-200 flex items-center justify-center gap-2">
           Draft restored — last saved at {(() => { const d = loadDraft(currentStep.id); return d ? new Date(d.savedAt).toLocaleTimeString() : ""; })()}
@@ -610,6 +604,7 @@ export default function TesterStepWizard() {
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-muted-foreground uppercase">Photo Evidence</label>
                 <EvidenceUpload
+                  key={currentStep.id}
                   entityId={stepResultIdByStepId[currentStep.id] ?? 0}
                   entityType="step_result"
                   attachments={activeExecution?.stepResults?.find((sr: any) => sr.stepId === currentStep.id)?.attachments ?? []}

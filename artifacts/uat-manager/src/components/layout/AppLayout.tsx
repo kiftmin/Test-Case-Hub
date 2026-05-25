@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -12,6 +12,22 @@ interface AppLayoutProps {
 
 export function AppLayout({ children, hideDesktopSidebar }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [connectionBanner, setConnectionBanner] = useState<"offline" | "restored" | null>(null);
+
+  useEffect(() => {
+    const handleOffline = () => setConnectionBanner("offline");
+    const handleOnline = () => {
+      setConnectionBanner("restored");
+      setTimeout(() => setConnectionBanner(null), 3000);
+    };
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+    if (!navigator.onLine) setConnectionBanner("offline");
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
@@ -40,6 +56,16 @@ export function AppLayout({ children, hideDesktopSidebar }: AppLayoutProps) {
       </aside>
 
       <main className="flex-1 overflow-y-auto focus:outline-none">
+        {connectionBanner === "offline" && (
+          <div className="sticky top-0 z-50 bg-destructive text-destructive-foreground text-xs font-medium text-center py-2 px-4">
+            No connection — your inputs are being saved as drafts locally.
+          </div>
+        )}
+        {connectionBanner === "restored" && (
+          <div className="sticky top-0 z-50 bg-green-600 text-white text-xs font-medium text-center py-2 px-4 animate-in slide-in-from-top">
+            Connection restored.
+          </div>
+        )}
         <div className="py-6 sm:py-8 px-6 sm:px-8 max-w-7xl mx-auto h-full">
           {children}
         </div>

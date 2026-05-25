@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Paperclip, X, Loader2, Check, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,10 +26,26 @@ export function EvidenceUpload({ entityId, entityType, attachments = [], onUpdat
   const [isUploading, setIsUploading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [localPreviews, setLocalPreviews] = useState<LocalPreview[]>([]);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [removedIds, setRemovedIds] = useState<Set<number>>(new Set());
   const createAttachment = useCreateAttachment();
   const deleteAttachment = useDeleteAttachment();
 
+  const objectUrlsRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    const urls = objectUrlsRef.current;
+    return () => { urls.forEach((url) => URL.revokeObjectURL(url)); };
+  }, []);
+
   const uploadFile = async (file: File, previewId: string) => {
+    if (!entityId || entityId <= 0) {
+      setLocalPreviews((prev) =>
+        prev.map((p) => (p.id === previewId ? { ...p, failed: true } : p))
+      );
+      toast.error("Save the step result first to enable photo upload.");
+      return;
+    }
     setIsUploading(true);
     setSuccess(false);
     try {
@@ -78,22 +94,59 @@ export function EvidenceUpload({ entityId, entityType, attachments = [], onUpdat
     if (!file) return;
     const previewId = crypto.randomUUID();
     const objectUrl = URL.createObjectURL(file);
+    objectUrlsRef.current.push(objectUrl);
     setLocalPreviews((prev) => [...prev, { id: previewId, file, objectUrl, failed: false }]);
-    await uploadFile(file, previewId);
-    URL.revokeObjectURL(objectUrl);
+    try {
+      await uploadFile(file, previewId);
+    } catch {
+      // already handled inside uploadFile
+    }
     e.target.value = "";
   };
 
+  const handleDeleteLocal = (previewId: string) => {
+    setLocalPreviews((prev) => {
+      const removed = prev.find((p) => p.id === previewId);
+      if (removed?.objectUrl) URL.revokeObjectURL(removed.objectUrl);
+      return prev.filter((p) => p.id !== previewId);
+    });
+  };
+
+  const handleRetry = async (preview: LocalPreview) => {
+    setLocalPreviews((prev) =>
+      prev.map((p) => (p.id === preview.id ? { ...p, failed: false } : p))
+    );
+    try {
+      await uploadFile(preview.file, preview.id);
+    } catch {
+      // already handled inside uploadFile
+    }
+  };
+
   const handleDelete = async (id: number) => {
-    await deleteAttachment.mutateAsync({ attachmentId: id });
-    if (onUpdate) onUpdate();
+    setDeletingId(id);
+    setRemovedIds((prev) => new Set(prev).add(id));
+    try {
+      await deleteAttachment.mutateAsync({ attachmentId: id });
+      if (onUpdate) onUpdate();
+    } catch {
+      setRemovedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      toast.error("Attachment was already removed.");
+      if (onUpdate) onUpdate();
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const fileInputId = `file-upload-${entityId}`;
   const cameraInputId = `camera-upload-${entityId}`;
 
   const allPreviews = [
-    ...attachments.map((f: any) => ({ id: `att-${f.id}`, type: "server" as const, file: f })),
+    ...attachments.filter((f: any) => !removedIds.has(f.id)).map((f: any) => ({ id: `att-${f.id}`, type: "server" as const, file: f })),
     ...localPreviews.map((p) => ({ id: p.id, type: "local" as const, preview: p })),
   ];
 
@@ -109,7 +162,7 @@ export function EvidenceUpload({ entityId, entityType, attachments = [], onUpdat
                   {file.fileType?.startsWith("image/") ? (
                     <div className="relative aspect-square rounded-md overflow-hidden border border-border bg-muted">
                       <img src={resolveUploadUrl(file.fileUrl)} alt={file.fileName} className="w-full h-full object-cover" />
-                      <button onClick={() => handleDelete(file.id)} className="absolute top-1 right-1 p-1 rounded-full bg-background/80 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100">
+                      <button onClick={() => handleDelete(file.id)} disabled={deletingId === file.id} className="absolute top-1 right-1 p-1 rounded-full bg-background/80 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40">
                         <X className="w-3 h-3" />
                       </button>
                     </div>
@@ -117,7 +170,7 @@ export function EvidenceUpload({ entityId, entityType, attachments = [], onUpdat
                     <div className="relative flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/50 border border-border text-xs font-medium">
                       <Paperclip className="w-3.5 h-3.5 shrink-0" />
                       <a href={resolveUploadUrl(file.fileUrl)} target="_blank" rel="noopener noreferrer" className="hover:underline truncate max-w-[120px]">{file.fileName}</a>
-                      <button onClick={() => handleDelete(file.id)} className="ml-auto p-1 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                      <button onClick={() => handleDelete(file.id)} disabled={deletingId === file.id} className="ml-auto p-1 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40">
                         <X className="w-3 h-3" />
                       </button>
                     </div>
@@ -137,14 +190,21 @@ export function EvidenceUpload({ entityId, entityType, attachments = [], onUpdat
                       <span className="truncate">{preview.file.name}</span>
                     </div>
                   )}
-                  {isUploading && (
-                    <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
-                      <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                    </div>
-                  )}
+                  <button
+                    onClick={() => handleDeleteLocal(preview.id)}
+                    className="absolute top-1 right-1 p-1 rounded-full bg-background/80 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
                   {preview.failed && (
-                    <div className="absolute bottom-1 left-1 right-1 bg-destructive/80 text-destructive-foreground text-[10px] font-medium text-center py-0.5 rounded">
-                      Upload failed
+                    <div className="absolute bottom-1 left-1 right-1 bg-destructive/80 text-destructive-foreground text-[10px] font-medium text-center py-0.5 rounded flex items-center justify-center gap-1">
+                      <span>Upload failed</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleRetry(preview); }}
+                        className="underline hover:no-underline font-bold"
+                      >
+                        Retry
+                      </button>
                     </div>
                   )}
                 </div>

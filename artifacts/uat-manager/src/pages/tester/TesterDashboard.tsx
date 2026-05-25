@@ -162,10 +162,10 @@ export default function TesterDashboard() {
                         </Badge>
                       )}
                       {(() => {
-                        if (run.myPendingCount === run.myUseCaseCount) {
-                          return <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">NEW</Badge>;
-                        } else if (run.myPendingCount === 0) {
+                        if (run.status === "completed") {
                           return <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">COMPLETED</Badge>;
+                        } else if (run.myPendingCount === run.myUseCaseCount) {
+                          return <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">NEW</Badge>;
                         } else {
                           return <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">IN PROGRESS</Badge>;
                         }
@@ -181,7 +181,7 @@ export default function TesterDashboard() {
                 <CardContent className="pb-4">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">{run.myUseCaseCount} use cases assigned</span>
-                    {run.myPendingCount === 0 ? (
+                    {run.status === "completed" ? (
                       <Link href={`/tester/run/${run.id}`}>
                         <Button size="sm" variant="secondary" className="h-8">
                           <ClipboardCheck className="w-4 h-4 mr-1.5" />
@@ -233,17 +233,17 @@ export default function TesterDashboard() {
                       <td className="py-3 px-4 text-center">{run.myUseCaseCount}</td>
                       <td className="py-3 px-4 text-center">
                         {(() => {
-                          if (run.myPendingCount === run.myUseCaseCount) {
-                            return <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">NEW</Badge>;
-                          } else if (run.myPendingCount === 0) {
+                          if (run.status === "completed") {
                             return <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">COMPLETED</Badge>;
+                          } else if (run.myPendingCount === run.myUseCaseCount) {
+                            return <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">NEW</Badge>;
                           } else {
                             return <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">IN PROGRESS</Badge>;
                           }
                         })()}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        {run.myPendingCount === 0 ? (
+                        {run.status === "completed" ? (
                           <Link href={`/tester/run/${run.id}`}>
                             <Button size="sm" variant="secondary" className="h-8">
                               <ClipboardCheck className="w-4 h-4 mr-1.5" />
