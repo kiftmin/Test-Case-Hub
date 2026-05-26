@@ -6,6 +6,7 @@ import {
   useCreateExecution, useUpdateExecution, useUpdateStepResult,
   useSyncTestRunUseCaseStatus,
   useListDefects, getListDefectsQueryKey,
+  useGetProject, getGetProjectQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -47,8 +48,10 @@ export default function TesterStepWizard() {
   const [stepResultIdByStepId, setStepResultIdByStepId] = useState<Record<number, number>>({});
   const [isSkipping, setIsSkipping] = useState(false);
   const [draftRestoredStepId, setDraftRestoredStepId] = useState<number | null>(null);
-  const [isOnline, setIsOnline] = useState(true);
+  const [draftRestoredTime, setDraftRestoredTime] = useState<string | null>(null);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevStepIndexRef = useRef<number>(0);
+  const isInitializedRef = useRef(false);
 
   const { data: testRun, isLoading: isLoadingRun } = useGetTestRun(trId, {
     query: { enabled: !!trId, queryKey: getGetTestRunQueryKey(trId) },
@@ -58,51 +61,43 @@ export default function TesterStepWizard() {
   });
 
   const projectId = testRun?.projectId ?? 0;
-  const { data: project, isLoading: isLoadingProject } = useQuery({
-    queryKey: ["project-lite", projectId],
-    queryFn: async () => {
-      const token = getAuthToken();
-      const headers: Record<string, string> = {};
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch(`/api/projects/${projectId}?lite=true`, { headers });
-      if (!res.ok) throw new Error("Failed to fetch project");
-      return res.json();
-    },
-    enabled: !!projectId,
+  const { data: project, isLoading: isLoadingProject } = useGetProject(projectId, {
+    query: { enabled: !!projectId, queryKey: getGetProjectQueryKey(projectId) },
   });
 
   const isLoading = isLoadingRun || isLoadingExecs || isLoadingProject;
 
-  const draftKey = (stepId: number) => `draft_step_${trId}_${tcId}_${stepId}`;
+  const getDraftKey = useCallback((stepId: number) => `draft_step_${trId}_${tcId}_${stepId}`, [trId, tcId]);
 
-  const saveDraft = useCallback((stepId: number, data: { actualResult?: string; comments?: string }) => {
+  const saveDraft = useCallback((stepId: number, data: { actualResult?: string; comments?: string; attachmentUrl?: string }) => {
     try {
-      sessionStorage.setItem(draftKey(stepId), JSON.stringify({
+      sessionStorage.setItem(getDraftKey(stepId), JSON.stringify({
         actualResult: data.actualResult ?? "",
         comments: data.comments ?? "",
+        attachmentUrl: data.attachmentUrl ?? "",
         savedAt: new Date().toISOString(),
       }));
     } catch { /* storage full or unavailable */ }
-  }, [trId, tcId]);
+  }, [getDraftKey]);
 
-  const loadDraft = useCallback((stepId: number): { actualResult: string; comments: string; savedAt: string } | null => {
+  const loadDraft = useCallback((stepId: number): { actualResult: string; comments: string; attachmentUrl?: string; savedAt: string } | null => {
     try {
-      const raw = sessionStorage.getItem(draftKey(stepId));
+      const raw = sessionStorage.getItem(getDraftKey(stepId));
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       const savedAt = new Date(parsed.savedAt);
       const now = new Date();
       if (savedAt.toDateString() !== now.toDateString()) {
-        sessionStorage.removeItem(draftKey(stepId));
+        sessionStorage.removeItem(getDraftKey(stepId));
         return null;
       }
       return parsed;
     } catch { return null; }
-  }, [trId, tcId]);
+  }, [getDraftKey]);
 
   const clearDraft = useCallback((stepId: number) => {
-    try { sessionStorage.removeItem(draftKey(stepId)); } catch { /* ignore */ }
-  }, [trId, tcId]);
+    try { sessionStorage.removeItem(getDraftKey(stepId)); } catch { /* ignore */ }
+  }, [getDraftKey]);
 
   const createExecution = useCreateExecution();
   const updateExecution = useUpdateExecution();
@@ -124,7 +119,8 @@ export default function TesterStepWizard() {
   const testCaseData = testCaseInTree;
 
   useEffect(() => {
-    if (activeExecution && activeExecution.id !== activeExecutionId) {
+    if (activeExecution && (!isInitializedRef.current || activeExecution.id !== activeExecutionId)) {
+      isInitializedRef.current = true;
       setActiveExecutionId(activeExecution.id);
       sessionStorage.setItem(`activeExec_${tcId}`, activeExecution.id.toString());
       const initial: Record<number, any> = {};
@@ -143,20 +139,10 @@ export default function TesterStepWizard() {
       setStepInputs(initial);
       setStepResultIdByStepId(srIds);
     }
-  }, [activeExecution?.id]);
+  }, [activeExecution?.id, activeExecutionId, tcId]);
 
-  // Connection status listener
-  useEffect(() => {
-    const handleOffline = () => setIsOnline(false);
-    const handleOnline = () => setIsOnline(true);
-    window.addEventListener("offline", handleOffline);
-    window.addEventListener("online", handleOnline);
-    setIsOnline(navigator.onLine);
-    return () => {
-      window.removeEventListener("offline", handleOffline);
-      window.removeEventListener("online", handleOnline);
-    };
-  }, []);
+  // Connection status is handled by the global ConnectionBanner component.
+  // We only need navigator.onLine for disabling the "Begin Testing" button.
 
   const casesInScopedUc = project?.useCases?.find((u: any) => u.id === ucid)?.testCases ?? [];
   const nextTcWithSteps = (() => {
@@ -235,7 +221,10 @@ export default function TesterStepWizard() {
         setStepResultIdByStepId((prev) => ({ ...prev, [stepId]: result.id }));
       }
       clearDraft(stepId);
-      setDraftRestoredStepId((prev) => prev === stepId ? null : prev);
+      setDraftRestoredStepId((prev) => {
+        if (prev === stepId) setDraftRestoredTime(null);
+        return prev === stepId ? null : prev;
+      });
       queryClient.invalidateQueries({ queryKey: getListExecutionsQueryKey(tcId) });
     } catch { /* swallow */ }
   }, [activeExecutionId, stepInputs, updateStepResult, queryClient, tcId, clearDraft]);
@@ -265,6 +254,23 @@ export default function TesterStepWizard() {
     setLocation(`/tester/run/${trId}/scenario/${returnUcId}`);
   }, [activeExecutionId, user, defectNotes, updateExecution, syncUseCaseStatus, trId, tcId, queryClient, setLocation, testRun, ucid]);
 
+  const handleReopenExecution = useCallback(async () => {
+    if (!lastCompletedExecution || !user) return;
+    try {
+      await updateExecution.mutateAsync({
+        executionId: lastCompletedExecution.id,
+        data: { status: "in_progress", testerName: user.name },
+      });
+      sessionStorage.setItem(`activeExec_${tcId}`, lastCompletedExecution.id.toString());
+      setActiveExecutionId(lastCompletedExecution.id);
+      isInitializedRef.current = false;
+      queryClient.invalidateQueries({ queryKey: getListExecutionsQueryKey(tcId) });
+      toast.success("Execution reopened for editing.");
+    } catch {
+      toast.error("Failed to reopen execution. Please check your connection.");
+    }
+  }, [lastCompletedExecution, updateExecution, tcId, queryClient, user]);
+
   // Debounced draft auto-save when step inputs change
   const draftStep = steps[currentStepIndex];
   useEffect(() => {
@@ -272,11 +278,44 @@ export default function TesterStepWizard() {
     const input = stepInputs[draftStep.id];
     if (!input) return;
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+
+    const attachments = activeExecution?.stepResults?.find((sr: any) => sr.stepId === draftStep.id)?.attachments ?? [];
+    const attachmentUrl = attachments[0]?.fileUrl ?? "";
+
     draftTimerRef.current = setTimeout(() => {
-      saveDraft(draftStep.id, { actualResult: input.actualResult, comments: input.comments });
+      saveDraft(draftStep.id, {
+        actualResult: input.actualResult,
+        comments: input.comments,
+        attachmentUrl,
+      });
     }, 800);
     return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
-  }, [stepInputs, draftStep?.id]);
+  }, [stepInputs, draftStep?.id, saveDraft, activeExecution?.stepResults]);
+
+  // Flush draft for the PREVIOUS step immediately on step navigation
+  // This ensures no data is lost when the debounce timer is cancelled by navigation
+  useEffect(() => {
+    const prevIndex = prevStepIndexRef.current;
+    if (prevIndex !== currentStepIndex && steps[prevIndex]) {
+      const prevStep = steps[prevIndex];
+      const input = stepInputs[prevStep.id];
+      if (input && (input.actualResult || input.comments)) {
+        // Cancel any pending debounce for the previous step
+        if (draftTimerRef.current) {
+          clearTimeout(draftTimerRef.current);
+          draftTimerRef.current = null;
+        }
+        const attachments = activeExecution?.stepResults?.find((sr: any) => sr.stepId === prevStep.id)?.attachments ?? [];
+        const attachmentUrl = attachments[0]?.fileUrl ?? "";
+        saveDraft(prevStep.id, {
+          actualResult: input.actualResult,
+          comments: input.comments,
+          attachmentUrl,
+        });
+      }
+    }
+    prevStepIndexRef.current = currentStepIndex;
+  }, [currentStepIndex, steps, stepInputs, saveDraft, activeExecution?.stepResults]);
 
   // Restore draft when stepping to a new step
   useEffect(() => {
@@ -290,11 +329,12 @@ export default function TesterStepWizard() {
         [draftStep.id]: { ...prev[draftStep.id] ?? { actualResult: "", comments: "", passed: null }, actualResult: draft.actualResult, comments: draft.comments },
       }));
       setDraftRestoredStepId(draftStep.id);
+      setDraftRestoredTime(new Date(draft.savedAt).toLocaleTimeString());
       if (draft.comments) {
         setShowComments((prev) => ({ ...prev, [draftStep.id]: true }));
       }
     }
-  }, [draftStep?.id]);
+  }, [draftStep?.id, loadDraft, activeExecution?.stepResults]);
 
   if (!user) return null;
 
@@ -349,7 +389,7 @@ export default function TesterStepWizard() {
             <div className="w-8" />
           </div>
         </header>
-        <div className="flex-1 p-4 space-y-3">
+        <div className="flex-1 p-4 space-y-3 overflow-y-auto">
           {stepResults.map((sr: any) => {
             const stepDef = stepDefs.find((s: any) => s.id === sr.stepId);
             return (
@@ -376,6 +416,15 @@ export default function TesterStepWizard() {
               </div>
             );
           })}
+        </div>
+        <div className="sticky bottom-0 bg-background border-t p-4">
+          <Button
+            onClick={handleReopenExecution}
+            className="w-full h-12 text-base font-bold"
+            disabled={updateExecution.isPending}
+          >
+            {updateExecution.isPending ? "Reopening..." : "Edit Results"}
+          </Button>
         </div>
       </div>
     );
@@ -427,8 +476,8 @@ export default function TesterStepWizard() {
             <h2 className="text-lg font-bold">Ready to Start</h2>
             <p className="text-sm text-muted-foreground mt-1">You will go through one step at a time.</p>
           </div>
-          <Button onClick={handleStartExecution} className="w-full max-w-xs h-12 text-base" disabled={createExecution.isPending || !isOnline} variant={!isOnline ? "secondary" : "default"}>
-            {createExecution.isPending ? "Starting..." : !isOnline ? "No Connection" : "Begin Testing"}
+          <Button onClick={handleStartExecution} className="w-full max-w-xs h-12 text-base" disabled={createExecution.isPending || !navigator.onLine} variant={!navigator.onLine ? "secondary" : "default"}>
+            {createExecution.isPending ? "Starting..." : !navigator.onLine ? "No Connection" : "Begin Testing"}
           </Button>
         </div>
       </div>
@@ -496,21 +545,6 @@ export default function TesterStepWizard() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col max-w-lg mx-auto w-full">
-      {draftRestoredStepId === currentStep?.id && (
-        <div className="sticky top-0 z-20 bg-amber-500/15 text-amber-700 text-xs font-medium text-center py-2 px-4 border-b border-amber-200 flex items-center justify-center gap-2">
-          Draft restored — last saved at {(() => { const d = loadDraft(currentStep.id); return d ? new Date(d.savedAt).toLocaleTimeString() : ""; })()}
-          <button
-            onClick={() => {
-              clearDraft(currentStep.id);
-              setDraftRestoredStepId(null);
-              setStepInputs((prev) => ({ ...prev, [currentStep.id]: { ...prev[currentStep.id], actualResult: "", comments: "" } }));
-            }}
-            className="underline hover:no-underline font-bold"
-          >
-            Clear draft
-          </button>
-        </div>
-      )}
       <header className="sticky top-0 z-10 bg-card border-b shadow-sm">
         <div className="px-4 h-14 flex items-center justify-between">
           <button onClick={goPrev} disabled={currentStepIndex === 0} className="h-8 w-8 flex items-center justify-center disabled:opacity-30">
@@ -532,6 +566,22 @@ export default function TesterStepWizard() {
           </div>
           <Progress value={progressValue} className="h-1.5" />
         </div>
+        {draftRestoredStepId === currentStep?.id && draftRestoredTime && (
+          <div className="bg-amber-500/15 text-amber-700 text-xs font-medium text-center py-2 px-4 border-t border-amber-200 flex items-center justify-center gap-2">
+            Draft restored — last saved at {draftRestoredTime}
+            <button
+              onClick={() => {
+                clearDraft(currentStep.id);
+                setDraftRestoredStepId(null);
+                setDraftRestoredTime(null);
+                setStepInputs((prev) => ({ ...prev, [currentStep.id]: { ...prev[currentStep.id], actualResult: "", comments: "" } }));
+              }}
+              className="underline hover:no-underline font-bold"
+            >
+              Clear draft
+            </button>
+          </div>
+        )}
       </header>
 
       <div className="flex-1 p-4 pb-0 overflow-y-auto">
@@ -634,8 +684,16 @@ export default function TesterStepWizard() {
             <Check className="w-5 h-5 mr-2" /> Pass
           </Button>
         </div>
-        {currentStepIndex < totalSteps - 1 && allStepsDone && (
-          <Button className="w-full h-10" onClick={() => setShowCompletion(true)}>
+        {allStepsDone && (
+          <Button className="w-full h-10" onClick={() => {
+            const anyFailed = allSteps.some((s: any) => stepInputs[s.id]?.passed === false);
+            if (anyFailed) {
+              setDefectNotes("");
+              setShowDefectDialog(true);
+            } else {
+              handleCompleteCase(true);
+            }
+          }}>
             Complete Test Case
           </Button>
         )}

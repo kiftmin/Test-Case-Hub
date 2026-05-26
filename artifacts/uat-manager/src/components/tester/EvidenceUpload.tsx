@@ -39,6 +39,13 @@ export function EvidenceUpload({ entityId, entityType, attachments = [], onUpdat
   }, []);
 
   const uploadFile = async (file: File, previewId: string) => {
+    if (!navigator.onLine) {
+      setLocalPreviews((prev) =>
+        prev.map((p) => (p.id === previewId ? { ...p, failed: true } : p))
+      );
+      toast.error("Cannot upload files while offline. Please check your connection and try again.");
+      return;
+    }
     if (!entityId || entityId <= 0) {
       setLocalPreviews((prev) =>
         prev.map((p) => (p.id === previewId ? { ...p, failed: true } : p))

@@ -26,6 +26,7 @@ import BugList from "@/pages/projects/BugList";
 import UserManagement from "@/pages/Users";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { RequireTesterAuth } from "@/components/auth/RequireTesterAuth";
+import { ConnectionBanner } from "@/components/tester/ConnectionBanner";
 import { useGetProjectByCode } from "@workspace/api-client-react";
 import { useGetTesterTestRuns } from "@workspace/api-client-react";
 import { getAuthUser } from "@/lib/auth";
@@ -120,6 +121,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <ConnectionBanner />
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <Router />
         </WouterRouter>

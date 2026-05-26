@@ -240,8 +240,20 @@ export async function canAccessAttachmentEntity(
       where: eq(stepResultsTable.id, entityId),
     });
     if (!stepResult) return false;
-    const access = await verifyExecutionModifyAccess(req, stepResult.executionId);
-    return access.ok;
+    const execution = await db.query.executionsTable.findFirst({
+      where: eq(executionsTable.id, stepResult.executionId),
+    });
+    if (!execution) return false;
+    if (execution.testRunId) {
+      // Allow access if the user is the executor of this step result
+      if (execution.testerId === req.user.userId) {
+        return true;
+      }
+      return canViewTestRun(req, execution.testRunId);
+    }
+    const projectId = await resolveProjectIdForTestCase(execution.testCaseId);
+    if (projectId === null) return false;
+    return canAccessProject(req, projectId);
   }
 
   if (entityType === "test_step") {
